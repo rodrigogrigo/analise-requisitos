@@ -22,6 +22,7 @@ var/
 myesnv
 wheels/
 share/python-wheels/
+myenv/
 *.egg-info/
 .installed.cfg
 *.egg
