@@ -9,7 +9,9 @@ Defina o caminho para o diretório onde os datasets estão localizados:
 
 ```python
 DIRETORIO_DATASETS = 'caminho/para/o/diretorio/dos/datasets'
-``` 
+```
+
+Os datasets podem ser baixados em: https://github.com/rodrigogrigo/analise-requisitos/tree/main/datasets_all
 
 ### 2. Limitação de Registros
 Para limitar a quantidade de registros carregados de cada dataset, altere a variável LIMITAR_QUANTIDADE_REGISTROS para True. Quando essa configuração for ativada, ajuste também o valor de QUANTIDADE_REGISTROS_SE_LIMITADO:
