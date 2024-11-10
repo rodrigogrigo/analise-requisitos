@@ -37,3 +37,6 @@ myenv\Scripts\python analise_requisito_esforco_storyPoints.py
 
 ### Resultados
 O arquivo com os resultados serão gerados no mesmo local onde estão os fontes, como nome resultados_modelos.csv
+
+### Folds
+Os folds com a divisão do dataset para validação cruzada são gerados em /folds. A criação dos folds ocorre apenas 1 vez, caso eles não existam. 
