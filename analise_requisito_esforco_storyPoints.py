@@ -52,7 +52,7 @@ importlib.reload(ensemble_models)
 VERSAO_NOME_BERT = "V_BERT"
 VERSAO_NOME_ENSEMBLE = "V_ENSEMBLE"
 DIRETORIO_DATASETS = 'D:\\Mestrado\\Python\\Projeto\\Datasets\\JIRA-Estimation-Prediction\\storypoint\\IEEE TSE2018\\dataset'
-LIMITAR_QUANTIDADE_REGISTROS = False
+LIMITAR_QUANTIDADE_REGISTROS = True
 QUANTIDADE_REGISTROS_SE_LIMITADO = 15
 NOME_ARQUIVO_RESULTADOS = 'resultados_modelos.csv'
 
@@ -64,23 +64,20 @@ datasetsCarregados = preprocessing.carregar_todos_dados(
 # Geração de estatísticas do dataset
 for dataset in datasetsCarregados:
     preprocessing.gerar_estatisticas_base(dataset)
-
-# Inicia o processamento dos datasets da lista, tratando o texto de cada um deles
-datasetsCarregados = preprocessing.preprocessar_todos_datasets(
-    datasetsCarregados)
-datasetsCarregados[0].head()
 ###########################################################
 
 
 ###########################################################
 # Treinamento e Avaliação dos Modelos BERT
 
-# Executa a Avaliação dos Modelos BERT e Similar
-datasets = datasetsCarregados
+# Inicia o processamento dos datasets da lista, tratando o texto de cada um deles
+datasetsBert = preprocessing.preprocessar_todos_datasets(
+    datasetsCarregados, True)
+datasetsBert[0].head()
 
 # Executa o método que realiza o treinamento e teste encima dos datasets, utilizando diversos modelos'
 resultados_finais, predicoes_por_modelo = bert_evaluation.avaliar_modelo_bert_em_datasets(
-    datasets, VERSAO_NOME_BERT)
+    datasetsBert, VERSAO_NOME_BERT)
 
 # Exportar os resultados para um arquivo CSV
 preprocessing.exportar_resultados_para_csv(
@@ -91,12 +88,14 @@ preprocessing.exportar_resultados_para_csv(
 ###########################################################
 # Treinamento e Avaliação de Modelos de Ensemble
 
-# Executa a Avaliação dos Modelos BERT e Similar
-datasets = datasetsCarregados
+# Inicia o processamento dos datasets da lista, tratando o texto de cada um deles
+datasetsEnsemble = preprocessing.preprocessar_todos_datasets(
+    datasetsCarregados, False)
+datasetsEnsemble[0].head()
 
 # Executa o método que realiza o treinamento e teste encima dos datasets, utilizando diversos modelos'
 resultados_finais, predicoes_por_modelo = ensemble_models.avaliar_modelosCombinados_em_datasets(
-    datasets, VERSAO_NOME_BERT)
+    datasetsEnsemble, VERSAO_NOME_ENSEMBLE)
 
 # Exportar os resultados para um arquivo CSV
 preprocessing.exportar_resultados_para_csv(

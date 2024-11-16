@@ -103,7 +103,7 @@ def remove_invalid_characters(text):
     return ''.join(c for c in text if not unicodedata.category(c).startswith('Cs'))
 
 
-def preprocessar_descricao(list_descricao):
+def preprocessar_descricao(list_descricao, baseBert=False):
     descricao_2 = []
 
     with tqdm(total=len(list_descricao), desc='Processando Descrição') as pbar:
@@ -120,15 +120,16 @@ def preprocessar_descricao(list_descricao):
                 descricao_processada = BeautifulSoup(
                     descricao_limpa, 'html.parser').get_text()
 
-                # Processa o texto com o spaCy
-                try:
-                    doc = nlp(descricao_processada)
-                    tokens = [t.lemma_.lower() for t in doc if t.pos_ != 'PUNCT'
-                              and len(t.lemma_) > 1 and not t.is_stop]
-                    descricao_processada = ' '.join(tokens).strip()
-                except UnicodeEncodeError as e:
-                    # Se houver erro, salva uma string vazia para evitar interrupção
-                    descricao_processada = ''
+                if not baseBert:
+                    # Processa o texto com o spaCy apenas se não for para uso com BERT
+                    try:
+                        doc = nlp(descricao_processada)
+                        tokens = [t.lemma_.lower() for t in doc if t.pos_ != 'PUNCT'
+                                  and len(t.lemma_) > 1 and not t.is_stop]
+                        descricao_processada = ' '.join(tokens).strip()
+                    except UnicodeEncodeError as e:
+                        # Se houver erro, salva uma string vazia para evitar interrupção
+                        descricao_processada = ''
 
             descricao_2.append(descricao_processada)
             pbar.update(1)
@@ -136,10 +137,10 @@ def preprocessar_descricao(list_descricao):
     return descricao_2
 
 
-def preprocessar_todos_datasets(lista_datasets):
+def preprocessar_todos_datasets(lista_datasets, baseBert=False):
     for dados_filtrados in lista_datasets:
         dados_filtrados['treated_description'] = preprocessar_descricao(
-            dados_filtrados['description'].values)
+            dados_filtrados['description'].values, baseBert)
 
     return lista_datasets
 
