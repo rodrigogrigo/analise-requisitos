@@ -8,7 +8,8 @@ Antes de executar o código, algumas constantes e configurações precisam ser a
 Defina o caminho para o diretório onde os datasets estão localizados:
 
 ```python
-DIRETORIO_DATASETS = 'caminho/para/o/diretorio/dos/datasets'
+DIRETORIO_DATASET_BRUTO = 'caminho/para/o/diretorio/dos/datasets'
+DIRETORIO_DATASET_PROCESSADO = 'caminho/para/o/diretorio/dos/datasets/processados'
 ```
 
 Os datasets podem ser baixados em: https://github.com/rodrigogrigo/analise-requisitos/tree/main/datasets_all
