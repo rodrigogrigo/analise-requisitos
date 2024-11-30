@@ -51,29 +51,28 @@ importlib.reload(ensemble_models)
 # Definição de Constantes Globais
 VERSAO_NOME_BERT = "V_BERT"
 VERSAO_NOME_ENSEMBLE = "V_ENSEMBLE"
-DIRETORIO_DATASETS = 'D:\\Mestrado\\Python\\Projeto\\Datasets\\JIRA-Estimation-Prediction\\storypoint\\IEEE TSE2018\\dataset'
-LIMITAR_QUANTIDADE_REGISTROS = True
+DIRETORIO_DATASET_BRUTO = 'D:\\Mestrado\\Python\\Projeto\\Datasets\\JIRA-Estimation-Prediction\\storypoint\\IEEE TSE2018\\dataset'
+DIRETORIO_DATASET_PROCESSADO = 'D:\\Mestrado\\Python\\Projeto\\Datasets\\JIRA-Estimation-Prediction\\storypoint\\IEEE TSE2018\\dataset_processado'
+LIMITAR_QUANTIDADE_REGISTROS = False
 QUANTIDADE_REGISTROS_SE_LIMITADO = 15
 NOME_ARQUIVO_RESULTADOS = 'resultados_modelos.csv'
 
 ###########################################################
 # Carrega as bases de dados em uma lista
-datasetsCarregados = preprocessing.carregar_todos_dados(
-    DIRETORIO_DATASETS, LIMITAR_QUANTIDADE_REGISTROS, QUANTIDADE_REGISTROS_SE_LIMITADO)
+datasetsComuns, datasetsBert = preprocessing.carregar_todos_dados(
+    DIRETORIO_DATASET_BRUTO, DIRETORIO_DATASET_PROCESSADO, LIMITAR_QUANTIDADE_REGISTROS, QUANTIDADE_REGISTROS_SE_LIMITADO)
 
 # Geração de estatísticas do dataset
-for dataset in datasetsCarregados:
+for dataset in datasetsComuns:
+    preprocessing.gerar_estatisticas_base(dataset)
+
+for dataset in datasetsBert:
     preprocessing.gerar_estatisticas_base(dataset)
 ###########################################################
 
 
 ###########################################################
 # Treinamento e Avaliação dos Modelos BERT
-
-# Inicia o processamento dos datasets da lista, tratando o texto de cada um deles
-datasetsBert = preprocessing.preprocessar_todos_datasets(
-    datasetsCarregados, True)
-datasetsBert[0].head()
 
 # Executa o método que realiza o treinamento e teste encima dos datasets, utilizando diversos modelos'
 resultados_finais, predicoes_por_modelo = bert_evaluation.avaliar_modelo_bert_em_datasets(
@@ -88,14 +87,9 @@ preprocessing.exportar_resultados_para_csv(
 ###########################################################
 # Treinamento e Avaliação de Modelos de Ensemble
 
-# Inicia o processamento dos datasets da lista, tratando o texto de cada um deles
-datasetsEnsemble = preprocessing.preprocessar_todos_datasets(
-    datasetsCarregados, False)
-datasetsEnsemble[0].head()
-
 # Executa o método que realiza o treinamento e teste encima dos datasets, utilizando diversos modelos'
 resultados_finais, predicoes_por_modelo = ensemble_models.avaliar_modelosCombinados_em_datasets(
-    datasetsEnsemble, VERSAO_NOME_ENSEMBLE)
+    datasetsComuns, VERSAO_NOME_ENSEMBLE)
 
 # Exportar os resultados para um arquivo CSV
 preprocessing.exportar_resultados_para_csv(

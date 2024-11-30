@@ -15,7 +15,7 @@ importlib.reload(utils)
 LEARNING_RATE = 2e-5
 MAX_LENGTH = 256
 BATCH_SIZE = 16
-EPOCHS = 20
+EPOCHS = 1
 
 
 class StoryPointDataset(Dataset):

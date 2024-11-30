@@ -99,7 +99,7 @@ def avaliar_modelosCombinados_em_datasets(lista_datasets, versao_nome):
         issuekeys = dados_filtrados['issuekey'].values
 
         # Salvar ou carregar KFold específico para o dataset
-        utils.salvar_kfold(descriptions, dataset_name)
+        utils.salvar_kfold(dados_filtrados, dataset_name)
         kfold_indices = utils.carregar_kfold(dataset_name)
 
         # Resultados para armazenar as métricas

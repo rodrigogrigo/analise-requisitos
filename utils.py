@@ -8,6 +8,10 @@ FOLDS_DIRECTORY = "folds"
 
 def salvar_kfold(dataset, dataset_name, n_splits=5, shuffle=True, random_state=42):
     os.makedirs(FOLDS_DIRECTORY, exist_ok=True)  # Cria a pasta se não existir
+
+    # Remove a extensão do arquivo, se houver
+    dataset_name = os.path.splitext(dataset_name)[0]
+
     filename = os.path.join(
         FOLDS_DIRECTORY, f"kfold_indices_{dataset_name}.pkl")
 

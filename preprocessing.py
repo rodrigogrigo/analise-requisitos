@@ -78,24 +78,79 @@ def carregar_dados(fonte_dados):
     return dados_filtrados
 
 
-def carregar_todos_dados(diretorio_pasta, limitar_registros=False, limite=1000):
-    lista_datasets = []
-    # Encontrar todos os arquivos .csv no diretório especificado
-    arquivos_csv = glob.glob(os.path.join(diretorio_pasta, "*.csv"))
+def carregar_todos_dados(diretorio_bruto, diretorio_processado, limitar_registros=False, limite=1000):
+    """
+    Carrega datasets processados (BERT e comum), ou processa os brutos e salva os processados.
+    """
+    import os
+    import glob
 
-    for arquivo in arquivos_csv:
-        dados_filtrados = carregar_dados(arquivo)
-        nome_dataset = os.path.basename(arquivo)  # Obtendo o nome do arquivo
-        # Adicionando uma nova coluna com o nome do dataset
-        dados_filtrados['dataset_name'] = nome_dataset
+    # Garantir que o diretório de datasets processados exista
+    os.makedirs(diretorio_processado, exist_ok=True)
 
-        # Verificar se deve limitar o número de registros
-        if limitar_registros:
-            dados_filtrados = dados_filtrados.head(limite)
+    lista_datasets_comuns = []
+    lista_datasets_bert = []
 
-        lista_datasets.append(dados_filtrados)
+    # Encontrar todos os arquivos brutos no diretório bruto
+    arquivos_brutos = glob.glob(os.path.join(diretorio_bruto, "*.csv"))
 
-    return lista_datasets
+    for arquivo in arquivos_brutos:
+        # Nome base do dataset (sem extensão)
+        nome_dataset = os.path.splitext(os.path.basename(arquivo))[0]
+        caminho_comum = os.path.join(
+            diretorio_processado, f"{nome_dataset}_tradicional_processed.csv")
+        caminho_bert = os.path.join(
+            diretorio_processado, f"{nome_dataset}_bert_processed.csv")
+
+        # Verificar e carregar versão comum
+        if os.path.exists(caminho_comum):
+            print(f"Carregando dataset processado (comum): {nome_dataset}")
+            dados_comuns = pd.read_csv(caminho_comum)
+            lista_datasets_comuns.append(dados_comuns)
+        else:
+            print(f"Processando dataset bruto (comum): {nome_dataset}")
+            dados_filtrados = carregar_dados(arquivo)
+            dados_filtrados['dataset_name'] = nome_dataset
+
+            # Aplicar limite, se necessário
+            if limitar_registros:
+                dados_filtrados = dados_filtrados.head(limite)
+
+            # Preprocessar descrições (comum)
+            lista_para_preprocessar = [dados_filtrados]
+            dados_processados_comum = preprocessar_todos_datasets(
+                lista_para_preprocessar, baseBert=False)[0]
+
+            # Salvar dataset processado (comum)
+            dados_processados_comum.to_csv(caminho_comum, index=False)
+            print(f"Dataset processado salvo (comum): {caminho_comum}")
+            lista_datasets_comuns.append(dados_processados_comum)
+
+        # Verificar e carregar versão BERT
+        if os.path.exists(caminho_bert):
+            print(f"Carregando dataset processado (BERT): {nome_dataset}")
+            dados_bert = pd.read_csv(caminho_bert)
+            lista_datasets_bert.append(dados_bert)
+        else:
+            print(f"Processando dataset bruto (BERT): {nome_dataset}")
+            dados_filtrados = carregar_dados(arquivo)
+            dados_filtrados['dataset_name'] = nome_dataset
+
+            # Aplicar limite, se necessário
+            if limitar_registros:
+                dados_filtrados = dados_filtrados.head(limite)
+
+            # Preprocessar descrições (BERT)
+            lista_para_preprocessar = [dados_filtrados]
+            dados_processados_bert = preprocessar_todos_datasets(
+                lista_para_preprocessar, baseBert=True)[0]
+
+            # Salvar dataset processado (BERT)
+            dados_processados_bert.to_csv(caminho_bert, index=False)
+            print(f"Dataset processado salvo (BERT): {caminho_bert}")
+            lista_datasets_bert.append(dados_processados_bert)
+
+    return lista_datasets_comuns, lista_datasets_bert
 
 
 def remove_invalid_characters(text):
