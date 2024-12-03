@@ -97,7 +97,7 @@ def avaliar_modelo_bert_em_datasets(lista_datasets, versao_nome):
             issuekeys = dados_filtrados['issuekey'].values
 
             # Salva e carrega os índices de KFold para garantir a mesma divisão
-            utils.salvar_kfold(descriptions, dataset_name)
+            utils.salvar_kfold(dados_filtrados, dataset_name)
             kfold_indices = utils.carregar_kfold(dataset_name)
 
             results = {
