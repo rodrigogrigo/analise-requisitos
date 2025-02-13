@@ -1,6 +1,7 @@
 import ensemble_models
 import bert_evaluation
 import preprocessing
+import ml_models
 import subprocess
 import sys
 
@@ -47,6 +48,7 @@ install("transformers[torch]")
 importlib.reload(preprocessing)
 importlib.reload(bert_evaluation)
 importlib.reload(ensemble_models)
+importlib.reload(ml_models)
 
 # Definição de Constantes Globais
 VERSAO_NOME_BERT = "V_BERT"
@@ -63,11 +65,11 @@ datasetsComuns, datasetsBert = preprocessing.carregar_todos_dados(
     DIRETORIO_DATASET_BRUTO, DIRETORIO_DATASET_PROCESSADO, LIMITAR_QUANTIDADE_REGISTROS, QUANTIDADE_REGISTROS_SE_LIMITADO)
 
 # Geração de estatísticas do dataset
-for dataset in datasetsComuns:
-    preprocessing.gerar_estatisticas_base(dataset)
+# for dataset in datasetsComuns:
+#    preprocessing.gerar_estatisticas_base(dataset)
 
-for dataset in datasetsBert:
-    preprocessing.gerar_estatisticas_base(dataset)
+# for dataset in datasetsBert:
+#    preprocessing.gerar_estatisticas_base(dataset)
 ###########################################################
 
 
@@ -76,11 +78,11 @@ for dataset in datasetsBert:
 
 # Executa o método que realiza o treinamento e teste encima dos datasets, utilizando diversos modelos'
 resultados_finais, predicoes_por_modelo = bert_evaluation.avaliar_modelo_bert_em_datasets(
-    datasetsBert, VERSAO_NOME_BERT)
+    datasetsBert, VERSAO_NOME_BERT, NOME_ARQUIVO_RESULTADOS)
 
 # Exportar os resultados para um arquivo CSV
-preprocessing.exportar_resultados_para_csv(
-    resultados_finais, NOME_ARQUIVO_RESULTADOS)
+# preprocessing.exportar_resultados_para_csv(
+#    resultados_finais, NOME_ARQUIVO_RESULTADOS)
 ###########################################################
 
 
@@ -89,9 +91,21 @@ preprocessing.exportar_resultados_para_csv(
 
 # Executa o método que realiza o treinamento e teste encima dos datasets, utilizando diversos modelos'
 resultados_finais, predicoes_por_modelo = ensemble_models.avaliar_modelosCombinados_em_datasets(
-    datasetsComuns, VERSAO_NOME_ENSEMBLE)
+    datasetsComuns, VERSAO_NOME_ENSEMBLE, NOME_ARQUIVO_RESULTADOS)
 
 # Exportar os resultados para um arquivo CSV
-preprocessing.exportar_resultados_para_csv(
-    resultados_finais, NOME_ARQUIVO_RESULTADOS)
+# preprocessing.exportar_resultados_para_csv(
+#    resultados_finais, NOME_ARQUIVO_RESULTADOS)
+###########################################################
+
+###########################################################
+# Treinamento e Avaliação de Modelos de Classificação
+
+# Executa o método que realiza o treinamento e teste encima dos datasets, utilizando diversos modelos'
+#resultados_finais, predicoes_por_modelo = ml_models.avaliar_modelosCombinados_em_datasets_classificacao(
+#    datasetsComuns, VERSAO_NOME_ENSEMBLE, NOME_ARQUIVO_RESULTADOS)
+
+# Exportar os resultados para um arquivo CSV
+#preprocessing.exportar_resultados_para_csv(
+#    resultados_finais, NOME_ARQUIVO_RESULTADOS)
 ###########################################################
