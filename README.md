@@ -8,8 +8,14 @@ Antes de executar o código, algumas constantes e configurações precisam ser a
 Defina o caminho para o diretório onde os datasets estão localizados:
 
 ```python
-DIRETORIO_DATASET_BRUTO = 'caminho/para/o/diretorio/dos/datasets'
-DIRETORIO_DATASET_PROCESSADO = 'caminho/para/o/diretorio/dos/datasets/processados'
+# Definição de Constantes Globais
+DIRETORIO_DATASET_BRUTO = 'D:\Resultados/datasets'
+DIRETORIO_DATASET_PROCESSADO = 'D:\Resultados/datasets_processados'
+NOME_ARQUIVO_RESULTADOS = 'D:\Resultados/resultados_modelos.csv'
+NOME_ARQUIVO_RESULTADOS_ENTRE_DATASETS = 'D:\Resultados/resultados_modelos_ENTRE_DATASETS.csv'
+NOME_ARQUIVO_RESULTADOS_MESMO_DATASET = 'D:\Resultados/resultados_modelos_MESMO_DATASET.csv'
+NOME_ARQUIVO_BERT_RESULTADOS_ENTRE_DATASETS = 'D:\Resultados/resultados_BERT_modelos_ENTRE_DATASETS.csv'
+NOME_ARQUIVO_BERT_RESULTADOS_MESMO_DATASET = 'D:\Resultados/resultados_BERT_modelos_MESMO_DATASET.csv'
 ```
 
 Os datasets podem ser baixados em: https://github.com/rodrigogrigo/analise-requisitos/tree/main/datasets_all
