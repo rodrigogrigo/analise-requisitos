@@ -20,7 +20,7 @@ importlib.reload(preprocessing)
 LEARNING_RATE = 2e-5
 MAX_LENGTH = 256
 BATCH_SIZE = 16
-EPOCHS = 1
+EPOCHS = 15
 BASE_CHECKPOINT_PATH = "/content/checkpoints"  # Para Colab, use "/content/checkpoints"
 
 
