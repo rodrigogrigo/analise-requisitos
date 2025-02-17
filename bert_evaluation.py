@@ -1,27 +1,28 @@
-from tqdm import tqdm
-from sklearn.model_selection import train_test_split
 import torch
-from torch.utils.data import Dataset
-from transformers import AutoTokenizer, AutoModelForSequenceClassification, DataCollatorWithPadding, TrainingArguments, Trainer, EarlyStoppingCallback
-import torch.nn as nn
 import numpy as np
 import pandas as pd
-from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
-from scipy.stats import pearsonr
-from datetime import datetime
 import utils
 import importlib
 import preprocessing
 import os
 
+from tqdm import tqdm
+from sklearn.model_selection import train_test_split
+from torch.utils.data import Dataset
+from transformers import (AutoTokenizer, AutoModelForSequenceClassification,
+                          TrainingArguments, Trainer, EarlyStoppingCallback)
+from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
+from scipy.stats import pearsonr
+from datetime import datetime
+
 importlib.reload(utils)
 importlib.reload(preprocessing)
 
-LEARNING_RATE = 2e-5
-MAX_LENGTH = 256
+LEARNING_RATE = 5e-5
+MAX_LENGTH = 512
 BATCH_SIZE = 16
-EPOCHS = 15
-BASE_CHECKPOINT_PATH = "/content/checkpoints"  # Para Colab, use "/content/checkpoints"
+EPOCHS = 1
+BASE_CHECKPOINT_PATH = 'models/'  # Para Colab, use "/content/checkpoints"
 
 
 class StoryPointDataset(Dataset):
@@ -82,153 +83,181 @@ def compute_metrics(eval_pred):
 import shutil
 
 def get_models():
-    return ["google-bert/bert-large-uncased",
-               "bert-base-uncased", 
-               "microsoft/codebert-base", 
-               "FacebookAI/roberta-base",
-               "thearod5/se-bert",
-               "burakkececi/bert-software-engineering"
-            ] 
+    return [
+        ("bert_base_uncased", "google-bert/bert-base-uncased"),
+        ("roberta_base", "FacebookAI/roberta-base"),
+        ("code_bert", "microsoft/codebert-base"),
+        ("se_bert", "thearod5/se-bert"),
+        ("bert_software_engineering", "burakkececi/bert-software-engineering"),
+        ("bert_large_uncased", "google-bert/bert-large-uncased"),
+        ("roberta_large", "FacebookAI/roberta-large")
+    ]
 
-def avaliar_modelo_bert_em_datasets(lista_datasets, versao_nome, nome_arquiv_resultados):
+def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquiv_resultados):
+
     modelos = get_models()
 
     resultados_completos = []
+
     predicoes_por_modelo = {}
 
-    # Barra de progresso para os modelos
-    with tqdm(total=len(modelos), desc="Processando Modelos") as modelo_bar:
-        for model_name in modelos:
-            base_model_path = os.path.join(BASE_CHECKPOINT_PATH, model_name)
-            os.makedirs(base_model_path, exist_ok=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_name)
+    for model_name, model_checkpoint in modelos:
 
-            # Barra de progresso para os datasets
-            with tqdm(total=len(lista_datasets), desc=f"Processando Datasets para {model_name}") as dataset_bar:
-                for i, dados_filtrados in enumerate(lista_datasets):
-                    dataset_name = dados_filtrados["dataset_name"].iloc[0]
-                    print(f"\nAnalisando Dataset {i + 1} com o modelo {model_name}: {dataset_name}\n")
+        print(f"\nProcessando Modelo {model_name}")
 
-                    descriptions = dados_filtrados["treated_description"].values
-                    story_points = dados_filtrados["storypoint"].values
-                    issuekeys = dados_filtrados["issuekey"].values
+        base_model_path = os.path.join(BASE_CHECKPOINT_PATH, model_name)
 
-                    utils.salvar_kfold(dados_filtrados, dataset_name)
-                    kfold_indices = utils.carregar_kfold(dataset_name)
+        os.makedirs(base_model_path, exist_ok=True)
 
-                    # Inicializar listas para métricas e predições
-                    list_maes_scores, list_r2_scores, list_rmse_scores, list_pearson_scores = [], [], [], []
-                    all_y_test, all_y_pred, all_descriptions_test, all_issuekeys_test = [], [], [], []
+        tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, trust_remote_code=True)
 
-                    # Barra de progresso para os folds
-                    with tqdm(total=len(kfold_indices), desc=f"Processando Folds para {dataset_name}") as fold_bar:
-                        for fold_idx, (train_index, test_index) in enumerate(kfold_indices):
-                            print(f"  Processando Fold {fold_idx + 1}/{len(kfold_indices)} para o modelo {model_name}")
+        for i, dados_filtrados in enumerate(lista_datasets):
 
-                            X_train_full, X_test = descriptions[train_index], descriptions[test_index]
-                            y_train_full, y_test = story_points[train_index], story_points[test_index]
+            dataset_name = dados_filtrados["dataset_name"].iloc[0]
 
-                            fold_model_path = os.path.join(base_model_path, f"fold_{fold_idx}")
-                            os.makedirs(fold_model_path, exist_ok=True)
+            print(f"\n\tProcessando Dataset {dataset_name}\n")
 
-                            if os.path.exists(os.path.join(fold_model_path, "pytorch_model.bin")):
-                                print(f"Carregando modelo pré-treinado para o fold {fold_idx}.")
-                                model = AutoModelForSequenceClassification.from_pretrained(fold_model_path)
-                            else:
-                                print(f"Treinando modelo para o fold {fold_idx}.")
-                                model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=1)
+            descriptions = dados_filtrados["treated_description"].values
 
-                                X_train, X_valid, y_train, y_valid = train_test_split(
-                                    X_train_full, y_train_full, test_size=0.1, random_state=42
-                                )
+            story_points = dados_filtrados["storypoint"].values
 
-                                train_dataset = StoryPointDataset(X_train, y_train, tokenizer, MAX_LENGTH)
-                                valid_dataset = StoryPointDataset(X_valid, y_valid, tokenizer, MAX_LENGTH)
+            issuekeys = dados_filtrados["issuekey"].values
 
-                                training_args = TrainingArguments(
-                                    output_dir=fold_model_path,
-                                    learning_rate=LEARNING_RATE,
-                                    per_device_train_batch_size=BATCH_SIZE,
-                                    per_device_eval_batch_size=BATCH_SIZE,
-                                    num_train_epochs=EPOCHS,
-                                    evaluation_strategy="epoch",
-                                    save_strategy="epoch",
-                                    save_total_limit=1,
-                                    load_best_model_at_end=True,
-                                    fp16=True,
-                                    weight_decay=0.01,
-                                    metric_for_best_model="mae",
-                                    greater_is_better=False,
-                                    report_to="none",
-                                )
+            utils.salvar_kfold(dados_filtrados, dataset_name)
 
-                                trainer = Trainer(
-                                    model=model,
-                                    args=training_args,
-                                    train_dataset=train_dataset,
-                                    eval_dataset=valid_dataset,
-                                    compute_metrics=compute_metrics,
-                                    callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
-                                )
+            kfold_indices = utils.carregar_kfold(dataset_name)
 
-                                trainer.train()
-                                model.save_pretrained(fold_model_path)
-                                tokenizer.save_pretrained(fold_model_path)
+            # Inicializar listas para métricas e predições
 
-                            test_dataset = StoryPointDataset(X_test, y_test, tokenizer, MAX_LENGTH)
-                            trainer = Trainer(model=model)
-                            predictions = trainer.predict(test_dataset).predictions.flatten()
+            list_maes_scores, list_r2_scores, list_rmse_scores, list_pearson_scores = [], [], [], []
 
-                            # Calcular métricas
-                            mae = mean_absolute_error(y_test, predictions)
-                            r2 = r2_score(y_test, predictions)
-                            rmse = np.sqrt(mean_squared_error(y_test, predictions))
-                            pearson_corr, _ = pearsonr(y_test, predictions)
+            all_y_test, all_y_pred, all_descriptions_test, all_issuekeys_test = [], [], [], []
 
-                            # Salvar métricas do fold
-                            list_maes_scores.append(mae)
-                            list_r2_scores.append(r2)
-                            list_rmse_scores.append(rmse)
-                            list_pearson_scores.append(pearson_corr)
+            for fold_idx, (train_index, test_index) in enumerate(kfold_indices, start=1):
 
-                            # Salvar predições do fold
-                            all_y_test.extend(y_test)
-                            all_y_pred.extend(predictions)
-                            all_descriptions_test.extend(X_test)
-                            all_issuekeys_test.extend(issuekeys[test_index])
+                print(f"\t\tProcessando Fold {fold_idx}")
 
-                            fold_bar.update(1)
+                # print(f"  Processando Fold {fold_idx + 1}/{len(kfold_indices)} para o modelo {model_name}")
 
-                    # Consolidar resultados para o modelo atual no dataset
-                    result = {
-                        "Versao": versao_nome,
-                        "Dataset": dataset_name,
-                        "Model": model_name,
-                        "MAE_Mean": np.mean(list_maes_scores),
-                        "MAE_Std": np.std(list_maes_scores),
-                        "R2_Mean": np.mean(list_r2_scores),
-                        "R2_Std": np.std(list_r2_scores),
-                        "RMSE_Mean": np.mean(list_rmse_scores),
-                        "RMSE_Std": np.std(list_rmse_scores),
-                        "Pearson_Corr_Mean": np.mean(list_pearson_scores),
-                        "Pearson_Corr_Std": np.std(list_pearson_scores),
-                        "Execution_DateTime": datetime.now(),
-                    }
+                X_train_full, X_test = descriptions[train_index], descriptions[test_index]
+                y_train_full, y_test = story_points[train_index], story_points[test_index]
 
-                    resultados_completos.append(result)
+                fold_best_model_path = os.path.join(base_model_path,
+                                               f"fold_{fold_idx}", "best_model")
 
-                    # Exportar resultados do modelo consolidado para o CSV
-                    resultados_df = pd.DataFrame([result])
-                    resultados_df.drop_duplicates(inplace=True)
-                    preprocessing.exportar_resultados_para_csv(resultados_df, nome_arquiv_resultados)
+                if os.path.exists(os.path.join(fold_best_model_path, "pytorch_model.bin")):
 
-                    dataset_bar.update(1)
+                    print(f"Carregando modelo pré-treinado para o fold {fold_idx}.")
 
-            # Limpar checkpoints para o modelo atual
-            shutil.rmtree(base_model_path, ignore_errors=True)
-            print(f"Todos os checkpoints do modelo {model_name} foram removidos após a avaliação.")
+                    model = AutoModelForSequenceClassification.from_pretrained(
+                        fold_best_model_path, num_labels=1)
 
-            modelo_bar.update(1)
+                else:
+
+                    os.makedirs(fold_best_model_path, exist_ok=True)
+
+                    # print(f"Treinando modelo para o fold {fold_idx}.")
+
+                    model = AutoModelForSequenceClassification.from_pretrained(
+                        model_checkpoint, num_labels=1)
+
+                    X_train, X_valid, y_train, y_valid = train_test_split(
+                        X_train_full, y_train_full, test_size=0.1, random_state=42
+                    )
+
+                    train_dataset = StoryPointDataset(X_train, y_train, tokenizer, MAX_LENGTH)
+
+                    valid_dataset = StoryPointDataset(X_valid, y_valid, tokenizer, MAX_LENGTH)
+
+                    output_dir = os.path.join(base_model_path, f"fold_{fold_idx}", "checkpoints")
+
+                    os.makedirs(output_dir, exist_ok=True)
+
+                    training_args = TrainingArguments(
+                        output_dir=output_dir,
+                        learning_rate=LEARNING_RATE,
+                        per_device_train_batch_size=BATCH_SIZE,
+                        per_device_eval_batch_size=BATCH_SIZE,
+                        num_train_epochs=EPOCHS,
+                        eval_strategy="epoch",
+                        save_strategy="epoch",
+                        save_total_limit=1,
+                        load_best_model_at_end=True,
+                        fp16=False,
+                        weight_decay=0.01,
+                        metric_for_best_model="mae",
+                        greater_is_better=False,
+                        report_to="none",
+                    )
+
+                    trainer = Trainer(
+                        model=model,
+                        args=training_args,
+                        train_dataset=train_dataset,
+                        eval_dataset=valid_dataset,
+                        compute_metrics=compute_metrics,
+                        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
+                    )
+
+                    trainer.train()
+
+                    model.save_pretrained(fold_best_model_path)
+
+                    tokenizer.save_pretrained(fold_best_model_path)
+
+                    shutil.rmtree(fold_best_model_path, ignore_errors=True)
+
+                test_dataset = StoryPointDataset(X_test, y_test, tokenizer, MAX_LENGTH)
+
+                trainer = Trainer(model=model)
+
+                predictions = trainer.predict(test_dataset).predictions.flatten()
+
+                # Calcular métricas
+                mae = mean_absolute_error(y_test, predictions)
+                r2 = r2_score(y_test, predictions)
+                rmse = np.sqrt(mean_squared_error(y_test, predictions))
+                pearson_corr, _ = pearsonr(y_test, predictions)
+
+                # Salvar métricas do fold
+                list_maes_scores.append(mae)
+                list_r2_scores.append(r2)
+                list_rmse_scores.append(rmse)
+                list_pearson_scores.append(pearson_corr)
+
+                # Salvar predições do fold
+                all_y_test.extend(y_test)
+                all_y_pred.extend(predictions)
+                all_descriptions_test.extend(X_test)
+                all_issuekeys_test.extend(issuekeys[test_index])
+
+            # Consolidar resultados para o modelo atual no dataset
+            result = {
+                "Versao": versao_nome,
+                "Dataset": dataset_name,
+                "Model": model_name,
+                "MAE_Mean": np.mean(list_maes_scores),
+                "MAE_Std": np.std(list_maes_scores),
+                "R2_Mean": np.mean(list_r2_scores),
+                "R2_Std": np.std(list_r2_scores),
+                "RMSE_Mean": np.mean(list_rmse_scores),
+                "RMSE_Std": np.std(list_rmse_scores),
+                "Pearson_Corr_Mean": np.mean(list_pearson_scores),
+                "Pearson_Corr_Std": np.std(list_pearson_scores),
+                "Execution_DateTime": datetime.now(),
+            }
+
+            resultados_completos.append(result)
+
+            # Exportar resultados do modelo consolidado para o CSV
+            resultados_df = pd.DataFrame([result])
+            resultados_df.drop_duplicates(inplace=True)
+            preprocessing.exportar_resultados_para_csv(resultados_df, nome_arquiv_resultados)
+
+        # Limpar checkpoints para o modelo atual
+        #
+        print(f"Todos os checkpoints do modelo {model_name} foram removidos após a avaliação.")
+
 
     return pd.DataFrame(resultados_completos), predicoes_por_modelo
 def avaliar_modelo_bert_em_datasets_ciclico(lista_datasets, versao_nome, nome_arquiv_resultados):

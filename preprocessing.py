@@ -1,14 +1,15 @@
 import spacy
-from langdetect import detect, LangDetectException
 import os
 import glob
-from tqdm import tqdm
-from bs4 import BeautifulSoup
 import unicodedata
 import re
 import pandas as pd
-from collections import Counter
 import numpy as np
+
+from langdetect import detect, LangDetectException
+from tqdm import tqdm
+from bs4 import BeautifulSoup
+from collections import Counter
 
 # Carregar o modelo de idioma inglês
 nlp = spacy.load("en_core_web_sm")
@@ -95,13 +96,18 @@ def carregar_dados(fonte_dados):
     return dados_filtrados
 
 def carregar_todos_dados(diretorio_bruto, diretorio_processado, limitar_registros=False, limite=1000):
+
     os.makedirs(diretorio_processado, exist_ok=True)
+
     lista_datasets_comuns = []
     lista_datasets_bert = []
 
     arquivos_brutos = glob.glob(os.path.join(diretorio_bruto, "*.csv"))
+
     for arquivo in arquivos_brutos:
+
         nome_dataset = os.path.splitext(os.path.basename(arquivo))[0]
+
         caminho_comum = os.path.join(diretorio_processado, f"{nome_dataset}_tradicional_processed.csv")
         caminho_bert = os.path.join(diretorio_processado, f"{nome_dataset}_bert_processed.csv")
 
