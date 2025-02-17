@@ -205,7 +205,7 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquiv_
 
                     tokenizer.save_pretrained(fold_best_model_path)
 
-                    shutil.rmtree(fold_best_model_path, ignore_errors=True)
+                    shutil.rmtree(output_dir, ignore_errors=True)
 
                 test_dataset = StoryPointDataset(X_test, y_test, tokenizer, MAX_LENGTH)
 
