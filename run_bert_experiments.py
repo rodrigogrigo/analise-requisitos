@@ -1,20 +1,35 @@
 from preprocessing import carregar_todos_dados
-from bert_evaluation import avaliar_modelo_bert_intra_datasets
+from bert_evaluation import avaliar_modelo_bert_intra_datasets, avaliar_modelo_bert_inter_datasets
 
 
 if __name__ == '__main__':
 
-    VERSAO_NOME_BERT = 'V_BERT'
-    DIRETORIO_DATASET_BRUTO = 'datasets_all/'
-    DIRETORIO_DATASET_PROCESSADO = 'datasets_all_processados/'
-    LIMITAR_QUANTIDADE_REGISTROS = False
-    QUANTIDADE_REGISTROS_SE_LIMITADO = -1
-    NOME_ARQUIVO_RESULTADOS = 'resultados_modelos.csv'
+    versao_abordagem = 'V_BERT'
+    diretorio_datasets_brutos = 'datasets_all/'
+    diretorio_datasets_processados = 'datasets_all_processados/'
+    limitar_qtde_registros = False
+    n_registros = -1
+
+    is_run_intra_datasets = False
 
     _, bert_datasets = carregar_todos_dados(
-        DIRETORIO_DATASET_BRUTO, DIRETORIO_DATASET_PROCESSADO, LIMITAR_QUANTIDADE_REGISTROS,
-        QUANTIDADE_REGISTROS_SE_LIMITADO)
+        diretorio_datasets_brutos,
+        diretorio_datasets_processados,
+        limitar_qtde_registros,
+        n_registros)
 
-    resultados_finais, predicoes_por_modelo = avaliar_modelo_bert_intra_datasets(
-        bert_datasets, VERSAO_NOME_BERT, NOME_ARQUIVO_RESULTADOS
-    )
+    if is_run_intra_datasets:
+
+        avaliar_modelo_bert_intra_datasets(
+            bert_datasets,
+            versao_abordagem,
+            nome_arquivo_resultados='resultados_modelos_intra_dataset.csv'
+        )
+
+    else:
+
+        avaliar_modelo_bert_inter_datasets(
+            bert_datasets,
+            versao_abordagem,
+            nome_arquivo_resultados='resultados_modelos_inter_dataset.csv'
+        )

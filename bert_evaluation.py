@@ -93,7 +93,7 @@ def get_models():
         ("roberta_large", "FacebookAI/roberta-large")
     ]
 
-def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquiv_resultados):
+def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo_resultados):
 
     modelos = get_models()
 
@@ -105,7 +105,7 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquiv_
 
         print(f"\nProcessando Modelo {model_name}")
 
-        base_model_path = os.path.join(BASE_CHECKPOINT_PATH, model_name)
+        base_model_path = os.path.join(BASE_CHECKPOINT_PATH, 'intra', model_name)
 
         os.makedirs(base_model_path, exist_ok=True)
 
@@ -142,19 +142,18 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquiv_
                 X_train_full, X_test = descriptions[train_index], descriptions[test_index]
                 y_train_full, y_test = story_points[train_index], story_points[test_index]
 
-                fold_best_model_path = os.path.join(base_model_path,
-                                               f"fold_{fold_idx}", "best_model")
+                best_model_fold_path = os.path.join(base_model_path, f"fold_{fold_idx}", "best_model")
 
-                if os.path.exists(os.path.join(fold_best_model_path, "pytorch_model.bin")):
+                if os.path.exists(os.path.join(best_model_fold_path, "pytorch_model.bin")):
 
-                    print(f"Carregando modelo pré-treinado para o fold {fold_idx}.")
+                    print(f"\t\tCarregando modelo pré-treinado para o fold {fold_idx}.")
 
                     model = AutoModelForSequenceClassification.from_pretrained(
-                        fold_best_model_path, num_labels=1)
+                        best_model_fold_path, num_labels=1)
 
                 else:
 
-                    os.makedirs(fold_best_model_path, exist_ok=True)
+                    os.makedirs(best_model_fold_path, exist_ok=True)
 
                     # print(f"Treinando modelo para o fold {fold_idx}.")
 
@@ -199,11 +198,14 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquiv_
                         callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
                     )
 
-                    trainer.train()
+                    if os.path.exists(output_dir) and len(os.listdir(output_dir)) > 0:
+                        trainer.train(resume_from_checkpoint=True)
+                    else:
+                        trainer.train()
 
-                    model.save_pretrained(fold_best_model_path)
+                    model.save_pretrained(best_model_fold_path)
 
-                    tokenizer.save_pretrained(fold_best_model_path)
+                    tokenizer.save_pretrained(best_model_fold_path)
 
                     shutil.rmtree(output_dir, ignore_errors=True)
 
@@ -252,7 +254,7 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquiv_
             # Exportar resultados do modelo consolidado para o CSV
             resultados_df = pd.DataFrame([result])
             resultados_df.drop_duplicates(inplace=True)
-            preprocessing.exportar_resultados_para_csv(resultados_df, nome_arquiv_resultados)
+            preprocessing.exportar_resultados_para_csv(resultados_df, nome_arquivo_resultados)
 
         # Limpar checkpoints para o modelo atual
         #
@@ -260,146 +262,176 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquiv_
 
 
     return pd.DataFrame(resultados_completos), predicoes_por_modelo
-def avaliar_modelo_bert_em_datasets_ciclico(lista_datasets, versao_nome, nome_arquiv_resultados):
+
+
+def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo_resultados):
     """
-    Avalia modelos BERT utilizando a seguinte estratégia cíclica:
-      - Dataset i e i+1: Treinamento (concatenados)
-      - Dataset i+2: Validação
-      - Dataset i+3: Teste
-    Em cada ciclo, o resultado inclui as bases utilizadas para treinamento, validação e teste.
+        Avalia modelos BERT utilizando a seguinte estratégia cíclica:
+          - Dataset i e i+1: Treinamento (concatenados)
+          - Dataset i+2: Validação
+          - Dataset i+3: Teste
+        Em cada ciclo, o resultado inclui as bases utilizadas para treinamento, validação e teste.
     """
+
     modelos = get_models()
 
     resultados_completos = []
     predicoes_por_modelo = {}
 
     n_datasets = len(lista_datasets)
-    # Loop pelos modelos
-    with tqdm(total=len(modelos), desc="Processando Modelos") as modelo_bar:
-        for model_name in modelos:
-            base_model_path = os.path.join(BASE_CHECKPOINT_PATH, model_name)
-            os.makedirs(base_model_path, exist_ok=True)
-            tokenizer = AutoTokenizer.from_pretrained(model_name, use_fast=False)
-            
-            # Para cada modelo, processa os ciclos (cada ciclo usa 4 datasets de forma cíclica)
-            with tqdm(total=n_datasets, desc=f"Processando Ciclos para {model_name}") as ciclo_bar:
-                for i in range(n_datasets):
-                    # Seleciona os datasets de forma cíclica:
-                    ds_train1 = lista_datasets[i]
-                    ds_train2 = lista_datasets[(i + 1) % n_datasets]
-                    ds_val    = lista_datasets[(i + 2) % n_datasets]
-                    ds_test   = lista_datasets[(i + 3) % n_datasets]
-                    
-                    # Extração dos nomes dos datasets para log
-                    nome_train1 = ds_train1["dataset_name"].iloc[0]
-                    nome_train2 = ds_train2["dataset_name"].iloc[0]
-                    nome_val    = ds_val["dataset_name"].iloc[0]
-                    nome_test   = ds_test["dataset_name"].iloc[0]
-                    
-                    print(f"\nCiclo {i+1}/{n_datasets} para o modelo {model_name}")
-                    print(f"  Treinamento: {nome_train1} e {nome_train2}")
-                    print(f"  Validação:   {nome_val}")
-                    print(f"  Teste:       {nome_test}")
-                    
-                    # Preparação dos dados:
-                    # Concatena os dados dos dois conjuntos de treinamento
-                    X_train = np.concatenate([
-                        ds_train1["treated_description"].values,
-                        ds_train2["treated_description"].values
-                    ])
-                    y_train = np.concatenate([
-                        ds_train1["storypoint"].values,
-                        ds_train2["storypoint"].values
-                    ])
-                    
-                    X_val = ds_val["treated_description"].values
-                    y_val = ds_val["storypoint"].values
-                    
-                    X_test = ds_test["treated_description"].values
-                    y_test = ds_test["storypoint"].values
-                    
-                    cycle_model_path = os.path.join(base_model_path, f"cycle_{i}")
-                    os.makedirs(cycle_model_path, exist_ok=True)
-                    
-                    # Se já existir um modelo treinado para este ciclo, carrega-o; caso contrário, treina
-                    if os.path.exists(os.path.join(cycle_model_path, "pytorch_model.bin")):
-                        print(f"Carregando modelo pré-treinado para o ciclo {i}.")
-                        model = AutoModelForSequenceClassification.from_pretrained(cycle_model_path)
-                    else:
-                        print(f"Treinando modelo para o ciclo {i}.")
-                        model = AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=1)
-                        
-                        # Cria os datasets para treinamento e validação
-                        train_dataset = StoryPointDataset(X_train, y_train, tokenizer, MAX_LENGTH)
-                        val_dataset = StoryPointDataset(X_val, y_val, tokenizer, MAX_LENGTH)
-                        
-                        training_args = TrainingArguments(
-                            output_dir=cycle_model_path,
-                            learning_rate=LEARNING_RATE,
-                            per_device_train_batch_size=BATCH_SIZE,
-                            per_device_eval_batch_size=BATCH_SIZE,
-                            num_train_epochs=EPOCHS,
-                            evaluation_strategy="epoch",
-                            save_strategy="epoch",
-                            save_total_limit=1,
-                            load_best_model_at_end=True,
-                            fp16=True,
-                            weight_decay=0.01,
-                            metric_for_best_model="mae",
-                            greater_is_better=False,
-                            report_to="none",
-                        )
-                        
-                        trainer = Trainer(
-                            model=model,
-                            args=training_args,
-                            train_dataset=train_dataset,
-                            eval_dataset=val_dataset,
-                            compute_metrics=compute_metrics,
-                            callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
-                        )
-                        
-                        trainer.train()
-                        model.save_pretrained(cycle_model_path)
-                        tokenizer.save_pretrained(cycle_model_path)
-                    
-                    # Avaliação final no conjunto de teste
-                    test_dataset = StoryPointDataset(X_test, y_test, tokenizer, MAX_LENGTH)
-                    trainer = Trainer(model=model)
-                    predictions = trainer.predict(test_dataset).predictions.flatten()
-                    
-                    # Cálculo das métricas para o ciclo atual
-                    mae = mean_absolute_error(y_test, predictions)
-                    r2 = r2_score(y_test, predictions)
-                    rmse = np.sqrt(mean_squared_error(y_test, predictions))
-                    pearson_corr, _ = pearsonr(y_test, predictions)
-                    
-                    # Registra o resultado deste ciclo, incluindo os nomes das bases utilizadas
-                    result = {
-                        "Versao": versao_nome,
-                        "Model": model_name,
-                        "Dataset_Treino": f"{nome_train1}, {nome_train2}",
-                        "Dataset_Validacao": nome_val,
-                        "Dataset_Teste": nome_test,
-                        "MAE": mae,
-                        "R2": r2,
-                        "RMSE": rmse,
-                        "Pearson_Corr": pearson_corr,
-                        "Execution_DateTime": datetime.now()
-                    }
-                    resultados_completos.append(result)
-                    
-                    # Exporta o resultado deste ciclo para o CSV
-                    resultados_df = pd.DataFrame([result])
-                    resultados_df.drop_duplicates(inplace=True)
-                    preprocessing.exportar_resultados_para_csv(resultados_df, nome_arquiv_resultados)
-                    
-                    ciclo_bar.update(1)
-            
-            # Após avaliação, remove os checkpoints do modelo atual
-            shutil.rmtree(base_model_path, ignore_errors=True)
-            print(f"Todos os checkpoints do modelo {model_name} foram removidos após a avaliação.")
-            
-            modelo_bar.update(1)
-    
+
+    for model_name, model_checkpoint in modelos:
+
+        print(f"\nAvaliando Modelo {model_name}")
+
+        base_model_path = os.path.join(BASE_CHECKPOINT_PATH, 'inter', model_name)
+
+        os.makedirs(base_model_path, exist_ok=True)
+
+        tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, trust_remote_code=True)
+
+        for i in range(n_datasets):
+
+            # Seleciona os datasets de forma cíclica:
+
+            ds_test = lista_datasets[i]
+
+            ds_val = lista_datasets[(i + 1) % n_datasets]
+
+            ds_train1 = lista_datasets[(i + 2) % n_datasets]
+            ds_train2 = lista_datasets[(i + 3) % n_datasets]
+
+            # Extração dos nomes dos datasets para log
+            nome_test   = ds_test["dataset_name"].iloc[0]
+            nome_val    = ds_val["dataset_name"].iloc[0]
+            nome_train1 = ds_train1["dataset_name"].iloc[0]
+            nome_train2 = ds_train2["dataset_name"].iloc[0]
+
+            print(f"\n\tCiclo {i+1}/{n_datasets}\n")
+            print(f"\t\tTeste:       {nome_test} -- {len(ds_test)}")
+            print(f"\t\tValidação:   {nome_val} -- {len(ds_val)}")
+            print(f"\t\tTreinamento: {nome_train1} e {nome_train2} -- {len(ds_train1) + len(ds_train2)}")
+
+            # Preparação dos dados:
+            # Concatena os dados dos dois conjuntos de treinamento
+
+            X_train = np.concatenate([
+                ds_train1["treated_description"].values,
+                ds_train2["treated_description"].values
+            ])
+
+            y_train = np.concatenate([
+                ds_train1["storypoint"].values,
+                ds_train2["storypoint"].values
+            ])
+
+            X_val = ds_val["treated_description"].values
+            y_val = ds_val["storypoint"].values
+
+            X_test = ds_test["treated_description"].values
+            y_test = ds_test["storypoint"].values
+
+            best_model_cycle_path = os.path.join(base_model_path, f"cycle_{i+1}", "best_model")
+
+            # Se já existir um modelo treinado para este ciclo, carrega-o; caso contrário, treina
+            if os.path.exists(os.path.join(best_model_cycle_path, "pytorch_model.bin")):
+
+                print(f"\n\t\tCarregando modelo pré-treinado para o ciclo {i+1}.")
+
+                model = AutoModelForSequenceClassification.from_pretrained(best_model_cycle_path,
+                                                                           num_labels=1)
+
+            else:
+
+                os.makedirs(best_model_cycle_path, exist_ok=True)
+
+                print(f"\n\n\t\tTreinando modelo para o ciclo {i+1}.")
+
+                model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, num_labels=1)
+
+                # Cria os datasets para treinamento e validação
+                train_dataset = StoryPointDataset(X_train, y_train, tokenizer, MAX_LENGTH)
+                val_dataset = StoryPointDataset(X_val, y_val, tokenizer, MAX_LENGTH)
+
+                output_dir = os.path.join(base_model_path, f"cycle_{i+1}", "checkpoints")
+
+                os.makedirs(output_dir, exist_ok=True)
+
+                training_args = TrainingArguments(
+                    output_dir=output_dir,
+                    learning_rate=LEARNING_RATE,
+                    per_device_train_batch_size=BATCH_SIZE,
+                    per_device_eval_batch_size=BATCH_SIZE,
+                    num_train_epochs=EPOCHS,
+                    eval_strategy="epoch",
+                    save_strategy="epoch",
+                    save_total_limit=1,
+                    load_best_model_at_end=True,
+                    fp16=False,
+                    weight_decay=0.01,
+                    metric_for_best_model="mae",
+                    greater_is_better=False,
+                    report_to="none",
+                )
+
+                trainer = Trainer(
+                    model=model,
+                    args=training_args,
+                    train_dataset=train_dataset,
+                    eval_dataset=val_dataset,
+                    compute_metrics=compute_metrics,
+                    callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
+                )
+
+                if os.path.exists(output_dir) and len(os.listdir(output_dir)) > 0:
+                    trainer.train(resume_from_checkpoint=True)
+                else:
+                    trainer.train()
+
+                model.save_pretrained(best_model_cycle_path)
+                tokenizer.save_pretrained(best_model_cycle_path)
+
+                # Após avaliação, remove os checkpoints do modelo atual
+
+                shutil.rmtree(output_dir, ignore_errors=True)
+
+            # Avaliação final no conjunto de teste
+
+            test_dataset = StoryPointDataset(X_test, y_test, tokenizer, MAX_LENGTH)
+
+            trainer = Trainer(model=model)
+
+            predictions = trainer.predict(test_dataset).predictions.flatten()
+
+            # Cálculo das métricas para o ciclo atual
+
+            mae = mean_absolute_error(y_test, predictions)
+            r2 = r2_score(y_test, predictions)
+            rmse = np.sqrt(mean_squared_error(y_test, predictions))
+            pearson_corr, _ = pearsonr(y_test, predictions)
+
+            # Registra o resultado deste ciclo, incluindo os nomes das bases utilizadas
+
+            result = {
+                "Versao": versao_nome,
+                "Model": model_name,
+                "Dataset_Treino": f"{nome_train1}, {nome_train2}",
+                "Dataset_Validacao": nome_val,
+                "Dataset_Teste": nome_test,
+                "MAE": mae,
+                "R2": r2,
+                "RMSE": rmse,
+                "Pearson_Corr": pearson_corr,
+                "Execution_DateTime": datetime.now()
+            }
+
+            resultados_completos.append(result)
+
+            # Exporta o resultado deste ciclo para o CSV
+            resultados_df = pd.DataFrame([result])
+            resultados_df.drop_duplicates(inplace=True)
+            preprocessing.exportar_resultados_para_csv(resultados_df, nome_arquivo_resultados)
+
+        print(f"Todos os checkpoints do modelo {model_name} foram removidos após a avaliação.")
+
     return pd.DataFrame(resultados_completos), predicoes_por_modelo
