@@ -5,8 +5,8 @@ import utils
 import importlib
 import preprocessing
 import os
+import shutil
 
-from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 from transformers import (AutoTokenizer, AutoModelForSequenceClassification,
@@ -15,8 +15,10 @@ from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
 from scipy.stats import pearsonr
 from datetime import datetime
 
+
 importlib.reload(utils)
 importlib.reload(preprocessing)
+
 
 LEARNING_RATE = 5e-5
 MAX_LENGTH = 512
@@ -80,8 +82,6 @@ def compute_metrics(eval_pred):
     }
 
 
-import shutil
-
 def get_models():
     return [
         ("bert_base_uncased", "google-bert/bert-base-uncased"),
@@ -92,6 +92,7 @@ def get_models():
         ("bert_large_uncased", "google-bert/bert-large-uncased"),
         ("roberta_large", "FacebookAI/roberta-large")
     ]
+
 
 def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo_resultados):
 
@@ -257,9 +258,8 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo
             preprocessing.exportar_resultados_para_csv(resultados_df, nome_arquivo_resultados)
 
         # Limpar checkpoints para o modelo atual
-        #
-        print(f"Todos os checkpoints do modelo {model_name} foram removidos após a avaliação.")
 
+        print(f"Todos os checkpoints do modelo {model_name} foram removidos após a avaliação.")
 
     return pd.DataFrame(resultados_completos), predicoes_por_modelo
 
@@ -302,8 +302,8 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo
             ds_train2 = lista_datasets[(i + 3) % n_datasets]
 
             # Extração dos nomes dos datasets para log
-            nome_test   = ds_test["dataset_name"].iloc[0]
-            nome_val    = ds_val["dataset_name"].iloc[0]
+            nome_test = ds_test["dataset_name"].iloc[0]
+            nome_val = ds_val["dataset_name"].iloc[0]
             nome_train1 = ds_train1["dataset_name"].iloc[0]
             nome_train2 = ds_train2["dataset_name"].iloc[0]
 

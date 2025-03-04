@@ -1,5 +1,6 @@
 from preprocessing import carregar_todos_dados
 from bert_evaluation import avaliar_modelo_bert_intra_datasets, avaliar_modelo_bert_inter_datasets
+from ml_evaluation import avaliar_modelos_intra_datasets
 
 
 if __name__ == '__main__':

@@ -95,7 +95,9 @@ def carregar_dados(fonte_dados):
     
     return dados_filtrados
 
-def carregar_todos_dados(diretorio_bruto, diretorio_processado, limitar_registros=False, limite=1000):
+
+def carregar_todos_dados(diretorio_bruto: str, diretorio_processado: str,
+                         limitar_registros: bool = False, limite: int = 1000) -> tuple:
 
     os.makedirs(diretorio_processado, exist_ok=True)
 
@@ -184,11 +186,13 @@ def preprocessar_todos_datasets(lista_datasets, baseBert=False):
         dados_filtrados['treated_description'] = preprocessar_descricao(dados_filtrados['description'].values, baseBert)
     return lista_datasets
 
+
 def exportar_resultados_para_csv(resultados_finais, filename):
     if os.path.exists(filename):
         resultados_finais.to_csv(filename, mode='a', header=False, index=False)
     else:
         resultados_finais.to_csv(filename, mode='w', header=True, index=False)
+
 
 def gerar_estatisticas_base(lista_datasets):
     estatisticas_lista = []
