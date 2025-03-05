@@ -1,15 +1,19 @@
 import spacy
 import os
 import glob
-import unicodedata
 import re
 import pandas as pd
 import numpy as np
+import warnings
+import sys
 
 from langdetect import detect, LangDetectException
 from tqdm import tqdm
 from bs4 import BeautifulSoup
-from collections import Counter
+from bs4 import XMLParsedAsHTMLWarning, MarkupResemblesLocatorWarning
+
+warnings.filterwarnings("ignore", category=XMLParsedAsHTMLWarning)
+warnings.filterwarnings("ignore", category=MarkupResemblesLocatorWarning)
 
 # Carregar o modelo de idioma inglês
 nlp = spacy.load("en_core_web_sm")
@@ -17,13 +21,15 @@ nlp = spacy.load("en_core_web_sm")
 # Sequência de Fibonacci para verificação dos story points
 fibonacci_sequence = [1, 2, 3, 5, 8, 13, 21]
 
-def detectar_idioma(texto):
+
+def detectar_idioma(texto: str) -> str:
     try:
         return detect(texto)
     except LangDetectException:
         return 'unknown'
-    
-def uniformizar_storypoints(lista_datasets):
+
+
+def uniformizar_storypoints(lista_datasets: list) -> tuple:
     """
     Dado uma lista de DataFrames (cada um representando um dataset já com outliers removidos),
     filtra cada dataset para que nenhum registro possua um storypoint maior que o menor valor máximo entre todos os datasets.
@@ -50,18 +56,21 @@ def uniformizar_storypoints(lista_datasets):
     return nova_lista_datasets, min_max_sp
 
 
-def contar_frases(text):
+def contar_frases(text: str) -> int:
     if text is not None and len(text.strip()) > 0:
         doc = nlp(text)
         return len(list(doc.sents))
     else:
         return 0
 
-def contar_palavras_spacy(text):
+
+def contar_palavras_spacy(text: str) -> int:
     doc = nlp(text)
     return len([token for token in doc if not token.is_punct and not token.is_space])
 
+
 def carregar_dados(fonte_dados):
+
     dados_gerais = pd.read_csv(fonte_dados)
     
     # Detectar idioma
@@ -80,11 +89,11 @@ def carregar_dados(fonte_dados):
     dados['description'] = dados['title'].astype(str) + ' ' + dados['description']
     
     # Calcular IQR para remoção de outliers
-    Q1 = dados['storypoint'].quantile(0.25)
-    Q3 = dados['storypoint'].quantile(0.75)
-    IQR = Q3 - Q1
-    lower_bound = Q1 - 1.5 * IQR
-    upper_bound = Q3 + 1.5 * IQR
+    q1 = dados['storypoint'].quantile(0.25)
+    q3 = dados['storypoint'].quantile(0.75)
+    iqr = q3 - q1
+    lower_bound = q1 - 1.5 * iqr
+    upper_bound = q3 + 1.5 * iqr
     
     # Remover outliers
     dados = dados[(dados['storypoint'] >= lower_bound) & (dados['storypoint'] <= upper_bound)]
@@ -96,13 +105,12 @@ def carregar_dados(fonte_dados):
     return dados_filtrados
 
 
-def carregar_todos_dados(diretorio_bruto: str, diretorio_processado: str,
-                         limitar_registros: bool = False, limite: int = 1000) -> tuple:
+def carregar_datasets_ml(diretorio_bruto: str, diretorio_processado: str,
+                         limitar_registros: bool = False, limite: int = 1000) -> list:
 
     os.makedirs(diretorio_processado, exist_ok=True)
 
     lista_datasets_comuns = []
-    lista_datasets_bert = []
 
     arquivos_brutos = glob.glob(os.path.join(diretorio_bruto, "*.csv"))
 
@@ -111,57 +119,77 @@ def carregar_todos_dados(diretorio_bruto: str, diretorio_processado: str,
         nome_dataset = os.path.splitext(os.path.basename(arquivo))[0]
 
         caminho_comum = os.path.join(diretorio_processado, f"{nome_dataset}_tradicional_processed.csv")
-        caminho_bert = os.path.join(diretorio_processado, f"{nome_dataset}_bert_processed.csv")
 
         if os.path.exists(caminho_comum):
-            print(f"Carregando dataset processado (comum): {nome_dataset}")
+            print(f"\n\tCarregando dataset processado (comum): {nome_dataset}")
             dados_comuns = pd.read_csv(caminho_comum)
             lista_datasets_comuns.append(dados_comuns)
         else:
-            print(f"Processando dataset bruto (comum): {nome_dataset}")
+            print(f"\n\tProcessando dataset bruto (comum): {nome_dataset}\n")
             dados_filtrados = carregar_dados(arquivo)  # Aqui já ocorre a remoção de outliers via IQR
             dados_filtrados['dataset_name'] = nome_dataset
             if limitar_registros:
                 dados_filtrados = dados_filtrados.head(limite)
             lista_para_preprocessar = [dados_filtrados]
-            dados_processados_comum = preprocessar_todos_datasets(lista_para_preprocessar, baseBert=False)[0]
+            dados_processados_comum = preprocessar_todos_datasets(
+                lista_para_preprocessar, base_bert=False)[0]
             dados_processados_comum.to_csv(caminho_comum, index=False)
-            print(f"Dataset processado salvo (comum): {caminho_comum}")
+            print(f"\n\t\tDataset processado salvo (comum): {caminho_comum}")
             lista_datasets_comuns.append(dados_processados_comum)
 
+    # Uniformizar os storypoints nos datasets "comuns"
+    lista_datasets_comuns, min_max_sp = uniformizar_storypoints(lista_datasets_comuns)
+    print(f"\n\tValor máximo uniforme definido para storypoints: {min_max_sp}")
+
+    return lista_datasets_comuns
+
+
+def carregar_datasets_bert(diretorio_bruto: str, diretorio_processado: str,
+                           limitar_registros: bool = False, limite: int = 1000) -> list:
+
+    os.makedirs(diretorio_processado, exist_ok=True)
+
+    lista_datasets_bert = []
+
+    arquivos_brutos = glob.glob(os.path.join(diretorio_bruto, "*.csv"))
+
+    for arquivo in arquivos_brutos:
+
+        nome_dataset = os.path.splitext(os.path.basename(arquivo))[0]
+
+        caminho_bert = os.path.join(diretorio_processado, f"{nome_dataset}_bert_processed.csv")
+
         if os.path.exists(caminho_bert):
-            print(f"Carregando dataset processado (BERT): {nome_dataset}")
+            print(f"\n\tCarregando dataset processado (BERT): {nome_dataset}")
             dados_bert = pd.read_csv(caminho_bert)
             lista_datasets_bert.append(dados_bert)
         else:
-            print(f"Processando dataset bruto (BERT): {nome_dataset}")
+            print(f"\n\tProcessando dataset bruto (BERT): {nome_dataset}\n")
             dados_filtrados = carregar_dados(arquivo)
             dados_filtrados['dataset_name'] = nome_dataset
             if limitar_registros:
                 dados_filtrados = dados_filtrados.head(limite)
             lista_para_preprocessar = [dados_filtrados]
-            dados_processados_bert = preprocessar_todos_datasets(lista_para_preprocessar, baseBert=True)[0]
+            dados_processados_bert = preprocessar_todos_datasets(lista_para_preprocessar, base_bert=True)[0]
             dados_processados_bert.to_csv(caminho_bert, index=False)
-            print(f"Dataset processado salvo (BERT): {caminho_bert}")
+            print(f"\n\t\tDataset processado salvo (BERT): {caminho_bert}")
             lista_datasets_bert.append(dados_processados_bert)
 
-    # Uniformizar os storypoints nos datasets "comuns"
-    lista_datasets_comuns, min_max_sp = uniformizar_storypoints(lista_datasets_comuns)
-    print(f"Valor máximo uniforme definido para storypoints: {min_max_sp}")
-    
     # Se desejar, pode aplicar o mesmo para os datasets BERT:
     lista_datasets_bert, _ = uniformizar_storypoints(lista_datasets_bert)
 
-    return lista_datasets_comuns, lista_datasets_bert
+    return lista_datasets_bert
 
 
-def remove_invalid_characters(text):
+def remove_invalid_characters(text: str) -> str:
     text = re.sub(r'[^\x00-\x7F]+', ' ', text)
     return re.sub(r'\s+', ' ', text).strip()
 
-def preprocessar_descricao(list_descricao, baseBert=False):
+
+def preprocessar_descricao(list_descricao: list, base_bert: bool = False) -> list:
     descricao_2 = []
-    with tqdm(total=len(list_descricao), desc='Processando Descrição') as pbar:
+    with tqdm(total=len(list_descricao), file=sys.stdout, colour='red',
+              desc='\t\tProcessando Descrição') as pbar:
         for descricao in list_descricao:
             if pd.isna(descricao):
                 descricao_processada = ''
@@ -170,31 +198,34 @@ def preprocessar_descricao(list_descricao, baseBert=False):
             else:
                 descricao_limpa = remove_invalid_characters(descricao)
                 descricao_processada = BeautifulSoup(descricao_limpa, 'html.parser').get_text()
-                if not baseBert:
+                if not base_bert:
                     try:
                         doc = nlp(descricao_processada)
                         tokens = [t.lemma_.lower() for t in doc if t.pos_ != 'PUNCT' and len(t.lemma_) > 1 and not t.is_stop]
                         descricao_processada = ' '.join(tokens).strip()
-                    except UnicodeEncodeError as e:
+                    except UnicodeEncodeError:
                         descricao_processada = ''
             descricao_2.append(descricao_processada)
             pbar.update(1)
     return descricao_2
 
-def preprocessar_todos_datasets(lista_datasets, baseBert=False):
+
+def preprocessar_todos_datasets(lista_datasets: list, base_bert: bool = False) -> list:
     for dados_filtrados in lista_datasets:
-        dados_filtrados['treated_description'] = preprocessar_descricao(dados_filtrados['description'].values, baseBert)
+        dados_filtrados['treated_description'] = preprocessar_descricao(
+            dados_filtrados['description'].values, base_bert
+        )
     return lista_datasets
 
 
-def exportar_resultados_para_csv(resultados_finais, filename):
-    if os.path.exists(filename):
-        resultados_finais.to_csv(filename, mode='a', header=False, index=False)
+def exportar_resultados_para_csv(resultados_finais: pd.DataFrame, file_name: str) -> None:
+    if os.path.exists(file_name):
+        resultados_finais.to_csv(file_name, mode='a', header=False, index=False)
     else:
-        resultados_finais.to_csv(filename, mode='w', header=True, index=False)
+        resultados_finais.to_csv(file_name, mode='w', header=True, index=False)
 
 
-def gerar_estatisticas_base(lista_datasets):
+def gerar_estatisticas_base(lista_datasets: list) -> pd.DataFrame:
     estatisticas_lista = []
     for dados_filtrados in lista_datasets:
         nome_base = dados_filtrados['dataset_name'].iloc[0]
@@ -202,9 +233,9 @@ def gerar_estatisticas_base(lista_datasets):
         contagem_palavras = dados_filtrados['description'].apply(contar_palavras_spacy)
         media_palavras = np.mean(contagem_palavras)
         desvio_palavras = np.std(contagem_palavras)
-        story_points = dados_filtrados['storypoint'].values
-        distribuicao_story_points = Counter(story_points)
-        distribuicao_fibonacci = {ponto: distribuicao_story_points[ponto] for ponto in fibonacci_sequence if ponto in distribuicao_story_points}
+        # story_points = dados_filtrados['storypoint'].values
+        # distribuicao_story_points = Counter(story_points)
+        # distribuicao_fibonacci = {ponto: distribuicao_story_points[ponto] for ponto in fibonacci_sequence if ponto in distribuicao_story_points}
         story_point_min = dados_filtrados['storypoint'].min()
         story_point_max = dados_filtrados['storypoint'].max()
         story_point_mean = dados_filtrados['storypoint'].mean()

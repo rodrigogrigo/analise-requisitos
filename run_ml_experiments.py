@@ -1,4 +1,4 @@
-from preprocessing import carregar_todos_dados
+from preprocessing import carregar_datasets_ml
 from ml_evaluation import avaliar_modelos_intra_datasets, avaliar_modelos_inter_datasets
 
 
@@ -12,11 +12,13 @@ if __name__ == '__main__':
     limitar_qtde_registros = False
     n_registros = 10
 
-    is_run_intra_datasets = True
+    is_run_intra_datasets = False
 
     nome_arquivo_resultados = 'resultados_modelos.csv'
 
-    datasets, _ = carregar_todos_dados(
+    print('\nCarregando Bases de Dados')
+
+    datasets = carregar_datasets_ml(
         diretorio_datasets_brutos,
         diretorio_datasets_processados,
         limitar_qtde_registros,

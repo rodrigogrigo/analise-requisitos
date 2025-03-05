@@ -190,7 +190,7 @@ def avaliar_modelos_intra_datasets(lista_datasets: list, versao_nome: str,
             preprocessing.exportar_resultados_para_csv(resultados_df_model, nome_arquivo_csv)
             resultados_completos.append(result)
 
-    print("Processamento finalizado!")
+    print("\n\nProcessamento finalizado!")
 
     return pd.DataFrame(resultados_completos)
 
@@ -277,7 +277,7 @@ def avaliar_modelos_inter_datasets(lista_datasets: list, versao_nome: str,
         resultados_df_model.drop_duplicates(inplace=True)
         preprocessing.exportar_resultados_para_csv(resultados_df_model, nome_arquivo_csv)
 
-        print(f"Resultados exportados para o modelo: {model_name}")
+        print(f"\nResultados exportados para o modelo: {model_name}")
         resultados_completos.extend(temp_results)
 
     print("\n\nProcessamento finalizado!")
