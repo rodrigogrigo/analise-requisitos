@@ -23,7 +23,7 @@ importlib.reload(preprocessing)
 LEARNING_RATE = 5e-5
 MAX_LENGTH = 512
 BATCH_SIZE = 16
-EPOCHS = 1
+EPOCHS = 10
 BASE_CHECKPOINT_PATH = 'models/'  # Para Colab, use "/content/checkpoints"
 
 
@@ -84,13 +84,13 @@ def compute_metrics(eval_pred):
 
 def get_models():
     return [
-        # ("bert_base_uncased", "google-bert/bert-base-uncased"),
-        # ("roberta_base", "FacebookAI/roberta-base"),
-        # ("code_bert", "microsoft/codebert-base"),
-        # ("se_bert", "thearod5/se-bert"),
-        # ("bert_software_engineering", "burakkececi/bert-software-engineering"),
-        ('modern_bert_base', 'answerdotai/ModernBERT-base'),
-        # ('modern_bert_large', 'answerdotai/ModernBERT-large'),
+        ("bert_base_uncased", "google-bert/bert-base-uncased"),
+        ("roberta_base", "FacebookAI/roberta-base"),
+        ("code_bert", "microsoft/codebert-base"),
+        ("se_bert", "thearod5/se-bert"),
+        ("bert_software_engineering", "burakkececi/bert-software-engineering"),
+        ("modern_bert_base", "answerdotai/ModernBERT-base"),
+        # ("modern_bert_large", "answerdotai/ModernBERT-large"),
         # ("bert_large_uncased", "google-bert/bert-large-uncased"),
         # ("roberta_large", "FacebookAI/roberta-large")
     ]
@@ -205,7 +205,7 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets: list, versao_nome: str,
                         train_dataset=train_dataset,
                         eval_dataset=valid_dataset,
                         compute_metrics=compute_metrics,
-                        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
+                        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
                     )
 
                     if os.path.exists(output_dir) and len(os.listdir(output_dir)) > 0:
