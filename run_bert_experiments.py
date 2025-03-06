@@ -11,7 +11,7 @@ if __name__ == '__main__':
     limitar_qtde_registros = False
     n_registros = -1
 
-    is_run_intra_datasets = True
+    is_run_intra_datasets = False
 
     bert_datasets = carregar_datasets_bert(
         diretorio_datasets_brutos,

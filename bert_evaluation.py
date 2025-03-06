@@ -85,11 +85,11 @@ def compute_metrics(eval_pred):
 def get_models():
     return [
         ("bert_base_uncased", "google-bert/bert-base-uncased"),
-        ("roberta_base", "FacebookAI/roberta-base"),
-        ("code_bert", "microsoft/codebert-base"),
-        ("se_bert", "thearod5/se-bert"),
-        ("bert_software_engineering", "burakkececi/bert-software-engineering"),
-        ("modern_bert_base", "answerdotai/ModernBERT-base"),
+        # ("roberta_base", "FacebookAI/roberta-base"),
+        # ("code_bert", "microsoft/codebert-base"),
+        # ("se_bert", "thearod5/se-bert"),
+        # ("bert_software_engineering", "burakkececi/bert-software-engineering"),
+        # ("modern_bert_base", "answerdotai/ModernBERT-base"),
         # ("modern_bert_large", "answerdotai/ModernBERT-large"),
         # ("bert_large_uncased", "google-bert/bert-large-uncased"),
         # ("roberta_large", "FacebookAI/roberta-large")
@@ -338,6 +338,15 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets: list, versao_nome: str,
 
             X_test = ds_test["treated_description"].values
             y_test = ds_test["storypoint"].values
+
+            # from sklearn.preprocessing import StandardScaler
+            #
+            # scaler = StandardScaler()
+            #
+            # y_train = scaler.fit_transform(y_train.reshape(-1, 1)).ravel()
+            #
+            # y_val = scaler.transform(y_val.reshape(-1, 1)).ravel()
+            # y_test = scaler.transform(y_test.reshape(-1, 1)).ravel()
 
             best_model_cycle_path = os.path.join(base_model_path, f"cycle_{i+1}", "best_model")
 
