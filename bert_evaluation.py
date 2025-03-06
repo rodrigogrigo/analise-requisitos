@@ -84,15 +84,13 @@ def compute_metrics(eval_pred):
 
 def get_models():
     return [
-        ("bert_base_uncased", "google-bert/bert-base-uncased"),
+        # ("bert_base_uncased", "google-bert/bert-base-uncased"),
         # ("roberta_base", "FacebookAI/roberta-base"),
         # ("code_bert", "microsoft/codebert-base"),
         # ("se_bert", "thearod5/se-bert"),
         # ("bert_software_engineering", "burakkececi/bert-software-engineering"),
-        # ("modern_bert_base", "answerdotai/ModernBERT-base"),
-        # ("modern_bert_large", "answerdotai/ModernBERT-large"),
-        # ("bert_large_uncased", "google-bert/bert-large-uncased"),
-        # ("roberta_large", "FacebookAI/roberta-large")
+        ("bert_large_uncased", "google-bert/bert-large-uncased"),
+        ("roberta_large", "FacebookAI/roberta-large")
     ]
 
 
