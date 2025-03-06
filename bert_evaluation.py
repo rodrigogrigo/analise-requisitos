@@ -21,7 +21,7 @@ importlib.reload(preprocessing)
 LEARNING_RATE = 5e-5
 MAX_LENGTH = 512
 BATCH_SIZE = 16
-EPOCHS = 1
+EPOCHS = 15
 BASE_CHECKPOINT_PATH = 'models/'  # Para Colab, use "/content/checkpoints"
 
 
@@ -93,6 +93,23 @@ def get_models():
         ("roberta_large", "FacebookAI/roberta-large")
     ]
 
+def get_valid_checkpoint(output_dir):
+    """
+    Percorre os subdiretórios do output_dir que comecem com 'checkpoint-' e
+    retorna o caminho do primeiro checkpoint que contenha o arquivo 'pytorch_model.bin'.
+    Caso nenhum seja encontrado, retorna None.
+    """
+    if not os.path.exists(output_dir):
+        return None
+
+    # Ordena os diretórios para pegar o mais recente, se necessário
+    checkpoint_dirs = sorted([d for d in os.listdir(output_dir) if d.startswith("checkpoint-")])
+    for ckpt in checkpoint_dirs:
+        checkpoint_path = os.path.join(output_dir, ckpt, "pytorch_model.bin")
+        if os.path.exists(checkpoint_path):
+            return os.path.join(output_dir, ckpt)
+    return None
+
 def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo_resultados):
 
     modelos = get_models()
@@ -114,6 +131,10 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo
         for i, dados_filtrados in enumerate(lista_datasets):
 
             dataset_name = dados_filtrados["dataset_name"].iloc[0]
+
+            if utils.combinacao_ja_avaliada_intra(nome_arquivo_resultados, versao_nome, model_name, dataset_name):
+                print(f"\t[Dataset {dataset_name}] Combinação já avaliada para o modelo {model_name}. Pulando...")
+                continue
 
             print(f"\n\tProcessando Dataset {dataset_name}\n")
 
@@ -198,8 +219,9 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo
                         callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
                     )
 
-                    if os.path.exists(output_dir) and len(os.listdir(output_dir)) > 0:
-                        trainer.train(resume_from_checkpoint=True)
+                    valid_ckpt = get_valid_checkpoint(output_dir)
+                    if valid_ckpt:
+                        trainer.train(resume_from_checkpoint=valid_ckpt)
                     else:
                         trainer.train()
 
@@ -266,38 +288,31 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo
 
 def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo_resultados):
     """
-        Avalia modelos BERT utilizando a seguinte estratégia cíclica:
-          - Dataset i e i+1: Treinamento (concatenados)
-          - Dataset i+2: Validação
-          - Dataset i+3: Teste
-        Em cada ciclo, o resultado inclui as bases utilizadas para treinamento, validação e teste.
+    Avalia modelos BERT utilizando a seguinte estratégia cíclica:
+      - Dataset i e i+1: Treinamento (concatenados)
+      - Dataset i+2: Validação
+      - Dataset i+3: Teste
+    Em cada ciclo, o resultado inclui as bases utilizadas para treinamento, validação e teste.
+    Antes de iniciar a avaliação, verifica se a combinação já foi avaliada, consultando
+    o arquivo `nome_arquivo_resultados`.
     """
 
     modelos = get_models()
-
     resultados_completos = []
     predicoes_por_modelo = {}
-
     n_datasets = len(lista_datasets)
 
     for model_name, model_checkpoint in modelos:
-
         print(f"\nAvaliando Modelo {model_name}")
-
         base_model_path = os.path.join(BASE_CHECKPOINT_PATH, 'inter', model_name)
-
         os.makedirs(base_model_path, exist_ok=True)
 
         tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, trust_remote_code=True)
 
         for i in range(n_datasets):
-
             # Seleciona os datasets de forma cíclica:
-
             ds_test = lista_datasets[i]
-
             ds_val = lista_datasets[(i + 1) % n_datasets]
-
             ds_train1 = lista_datasets[(i + 2) % n_datasets]
             ds_train2 = lista_datasets[(i + 3) % n_datasets]
 
@@ -307,27 +322,34 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo
             nome_train1 = ds_train1["dataset_name"].iloc[0]
             nome_train2 = ds_train2["dataset_name"].iloc[0]
 
+            # Cria a string que representa os datasets de treinamento
+            dataset_treino_comb = f"{nome_train1}, {nome_train2}"
+
+            # Verifica se essa combinação já foi avaliada
+            if utils.combinacao_ja_avaliada_inter(nome_arquivo_resultados, versao_nome, model_name, 
+                                        dataset_treino_comb, nome_val, nome_test):
+                print(f"\t[Cycle {i+1}/{n_datasets}] Combinação já avaliada:")
+                print(f"\t\tTreino: {dataset_treino_comb}")
+                print(f"\t\tValidação: {nome_val}")
+                print(f"\t\tTeste: {nome_test}")
+                continue  # Pula para o próximo ciclo
+
             print(f"\n\tCiclo {i+1}/{n_datasets}\n")
             print(f"\t\tTeste:       {nome_test} -- {len(ds_test)}")
             print(f"\t\tValidação:   {nome_val} -- {len(ds_val)}")
             print(f"\t\tTreinamento: {nome_train1} e {nome_train2} -- {len(ds_train1) + len(ds_train2)}")
 
             # Preparação dos dados:
-            # Concatena os dados dos dois conjuntos de treinamento
-
             X_train = np.concatenate([
                 ds_train1["treated_description"].values,
                 ds_train2["treated_description"].values
             ])
-
             y_train = np.concatenate([
                 ds_train1["storypoint"].values,
                 ds_train2["storypoint"].values
             ])
-
             X_val = ds_val["treated_description"].values
             y_val = ds_val["storypoint"].values
-
             X_test = ds_test["treated_description"].values
             y_test = ds_test["storypoint"].values
 
@@ -335,18 +357,12 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo
 
             # Se já existir um modelo treinado para este ciclo, carrega-o; caso contrário, treina
             if os.path.exists(os.path.join(best_model_cycle_path, "pytorch_model.bin")):
-
                 print(f"\n\t\tCarregando modelo pré-treinado para o ciclo {i+1}.")
-
                 model = AutoModelForSequenceClassification.from_pretrained(best_model_cycle_path,
                                                                            num_labels=1)
-
             else:
-
                 os.makedirs(best_model_cycle_path, exist_ok=True)
-
                 print(f"\n\n\t\tTreinando modelo para o ciclo {i+1}.")
-
                 model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, num_labels=1)
 
                 # Cria os datasets para treinamento e validação
@@ -354,7 +370,6 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo
                 val_dataset = StoryPointDataset(X_val, y_val, tokenizer, MAX_LENGTH)
 
                 output_dir = os.path.join(base_model_path, f"cycle_{i+1}", "checkpoints")
-
                 os.makedirs(output_dir, exist_ok=True)
 
                 training_args = TrainingArguments(
@@ -383,39 +398,31 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo
                     callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
                 )
 
-                if os.path.exists(output_dir) and len(os.listdir(output_dir)) > 0:
-                    trainer.train(resume_from_checkpoint=True)
+                valid_ckpt = get_valid_checkpoint(output_dir)
+                if valid_ckpt:
+                    trainer.train(resume_from_checkpoint=valid_ckpt)
                 else:
                     trainer.train()
 
                 model.save_pretrained(best_model_cycle_path)
                 tokenizer.save_pretrained(best_model_cycle_path)
-
-                # Após avaliação, remove os checkpoints do modelo atual
-
                 shutil.rmtree(output_dir, ignore_errors=True)
 
             # Avaliação final no conjunto de teste
-
             test_dataset = StoryPointDataset(X_test, y_test, tokenizer, MAX_LENGTH)
-
             trainer = Trainer(model=model)
-
             predictions = trainer.predict(test_dataset).predictions.flatten()
-
-            # Cálculo das métricas para o ciclo atual
 
             mae = mean_absolute_error(y_test, predictions)
             r2 = r2_score(y_test, predictions)
             rmse = np.sqrt(mean_squared_error(y_test, predictions))
             pearson_corr, _ = pearsonr(y_test, predictions)
 
-            # Registra o resultado deste ciclo, incluindo os nomes das bases utilizadas
-
+            # Registra o resultado deste ciclo
             result = {
                 "Versao": versao_nome,
                 "Model": model_name,
-                "Dataset_Treino": f"{nome_train1}, {nome_train2}",
+                "Dataset_Treino": dataset_treino_comb,
                 "Dataset_Validacao": nome_val,
                 "Dataset_Teste": nome_test,
                 "MAE": mae,
@@ -424,7 +431,6 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo
                 "Pearson_Corr": pearson_corr,
                 "Execution_DateTime": datetime.now()
             }
-
             resultados_completos.append(result)
 
             # Exporta o resultado deste ciclo para o CSV
