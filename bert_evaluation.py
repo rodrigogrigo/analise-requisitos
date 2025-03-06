@@ -5,8 +5,8 @@ import utils
 import importlib
 import preprocessing
 import os
+import shutil
 
-from tqdm import tqdm
 from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 from transformers import (AutoTokenizer, AutoModelForSequenceClassification,
@@ -15,8 +15,10 @@ from sklearn.metrics import mean_absolute_error, r2_score, mean_squared_error
 from scipy.stats import pearsonr
 from datetime import datetime
 
+
 importlib.reload(utils)
 importlib.reload(preprocessing)
+
 
 LEARNING_RATE = 5e-5
 MAX_LENGTH = 512
@@ -56,13 +58,13 @@ class StoryPointDataset(Dataset):
         }
 
 
-class RegressionTrainer(Trainer):
-    def compute_loss(self, model, inputs, return_outputs=False):
-        labels = inputs.pop("labels")
-        outputs = model(**inputs)
-        logits = outputs[0][:, 0]
-        loss = torch.nn.functional.mse_loss(logits, labels)
-        return (loss, outputs) if return_outputs else loss
+# class RegressionTrainer(Trainer):
+#     def compute_loss(self, model, inputs, return_outputs=False):
+#         labels = inputs.pop("labels")
+#         outputs = model(**inputs)
+#         logits = outputs[0][:, 0]
+#         loss = torch.nn.functional.mse_loss(logits, labels)
+#         return (loss, outputs) if return_outputs else loss
 
 
 def compute_metrics(eval_pred):
@@ -80,8 +82,6 @@ def compute_metrics(eval_pred):
     }
 
 
-import shutil
-
 def get_models():
     return [
         ("bert_base_uncased", "google-bert/bert-base-uncased"),
@@ -89,8 +89,10 @@ def get_models():
         ("code_bert", "microsoft/codebert-base"),
         ("se_bert", "thearod5/se-bert"),
         ("bert_software_engineering", "burakkececi/bert-software-engineering"),
-        ("bert_large_uncased", "google-bert/bert-large-uncased"),
-        ("roberta_large", "FacebookAI/roberta-large")
+        ("modern_bert_base", "answerdotai/ModernBERT-base"),
+        # ("modern_bert_large", "answerdotai/ModernBERT-large"),
+        # ("bert_large_uncased", "google-bert/bert-large-uncased"),
+        # ("roberta_large", "FacebookAI/roberta-large")
     ]
 
 def get_valid_checkpoint(output_dir):
@@ -110,8 +112,8 @@ def get_valid_checkpoint(output_dir):
             return os.path.join(output_dir, ckpt)
     return None
 
-def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo_resultados):
-
+def avaliar_modelo_bert_intra_datasets(lista_datasets: list, versao_nome: str,
+                                       nome_arquivo_resultados: str) -> tuple:
     modelos = get_models()
 
     resultados_completos = []
@@ -172,6 +174,8 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo
                     model = AutoModelForSequenceClassification.from_pretrained(
                         best_model_fold_path, num_labels=1)
 
+                    print(f"\t\t\t\nTest: {len(X_test)}")
+
                 else:
 
                     os.makedirs(best_model_fold_path, exist_ok=True)
@@ -184,6 +188,10 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo
                     X_train, X_valid, y_train, y_valid = train_test_split(
                         X_train_full, y_train_full, test_size=0.1, random_state=42
                     )
+
+                    print(f"\n\t\t\tTrain: {len(X_train)}")
+                    print(f"\t\t\tValidation: {len(X_valid)}")
+                    print(f"\t\t\tTest: {len(X_test)}")
 
                     train_dataset = StoryPointDataset(X_train, y_train, tokenizer, MAX_LENGTH)
 
@@ -216,7 +224,7 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo
                         train_dataset=train_dataset,
                         eval_dataset=valid_dataset,
                         compute_metrics=compute_metrics,
-                        callbacks=[EarlyStoppingCallback(early_stopping_patience=5)],
+                        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
                     )
 
                     valid_ckpt = get_valid_checkpoint(output_dir)
@@ -278,15 +286,13 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets, versao_nome, nome_arquivo
             resultados_df.drop_duplicates(inplace=True)
             preprocessing.exportar_resultados_para_csv(resultados_df, nome_arquivo_resultados)
 
-        # Limpar checkpoints para o modelo atual
-        #
         print(f"Todos os checkpoints do modelo {model_name} foram removidos após a avaliação.")
-
 
     return pd.DataFrame(resultados_completos), predicoes_por_modelo
 
 
-def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo_resultados):
+def avaliar_modelo_bert_inter_datasets(lista_datasets: list, versao_nome: str,
+                                       nome_arquivo_resultados: str) -> tuple:
     """
     Avalia modelos BERT utilizando a seguinte estratégia cíclica:
       - Dataset i e i+1: Treinamento (concatenados)
@@ -317,8 +323,8 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets, versao_nome, nome_arquivo
             ds_train2 = lista_datasets[(i + 3) % n_datasets]
 
             # Extração dos nomes dos datasets para log
-            nome_test   = ds_test["dataset_name"].iloc[0]
-            nome_val    = ds_val["dataset_name"].iloc[0]
+            nome_test = ds_test["dataset_name"].iloc[0]
+            nome_val = ds_val["dataset_name"].iloc[0]
             nome_train1 = ds_train1["dataset_name"].iloc[0]
             nome_train2 = ds_train2["dataset_name"].iloc[0]
 

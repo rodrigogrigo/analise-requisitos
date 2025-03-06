@@ -1,4 +1,4 @@
-from preprocessing import carregar_todos_dados
+from preprocessing import carregar_datasets_bert
 from bert_evaluation import avaliar_modelo_bert_intra_datasets, avaliar_modelo_bert_inter_datasets
 
 
@@ -7,12 +7,13 @@ if __name__ == '__main__':
     versao_abordagem = 'V_BERT'
     diretorio_datasets_brutos = 'datasets_all/'
     diretorio_datasets_processados = 'datasets_all_processados/'
+
     limitar_qtde_registros = False
     n_registros = -1
 
-    is_run_intra_datasets = False
+    is_run_intra_datasets = True
 
-    _, bert_datasets = carregar_todos_dados(
+    bert_datasets = carregar_datasets_bert(
         diretorio_datasets_brutos,
         diretorio_datasets_processados,
         limitar_qtde_registros,
