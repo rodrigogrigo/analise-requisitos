@@ -118,6 +118,9 @@ def carregar_datasets_ml(diretorio_bruto: str, diretorio_processado: str,
 
         nome_dataset = os.path.splitext(os.path.basename(arquivo))[0]
 
+        if 'titanium' in nome_dataset:
+            continue
+
         caminho_comum = os.path.join(diretorio_processado, f"{nome_dataset}_tradicional_processed.csv")
 
         if os.path.exists(caminho_comum):
@@ -156,6 +159,9 @@ def carregar_datasets_bert(diretorio_bruto: str, diretorio_processado: str,
     for arquivo in arquivos_brutos:
 
         nome_dataset = os.path.splitext(os.path.basename(arquivo))[0]
+
+        if 'titanium' in nome_dataset:
+            continue
 
         caminho_bert = os.path.join(diretorio_processado, f"{nome_dataset}_bert_processed.csv")
 
