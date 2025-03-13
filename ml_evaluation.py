@@ -121,7 +121,7 @@ def avaliar_modelos_intra_datasets(lista_datasets: list, versao_nome: str,
 
         print(f'\nAnalisando Dataset {i + 1}: {dataset_name}\n')
 
-        descriptions = np.array(dados_filtrados['treated_description'].values)
+        descriptions = np.array(dados_filtrados['treated_description_ml'].values)
         effort_estimations = np.array(dados_filtrados['storypoint'].values)
 
         utils.salvar_kfold(dados_filtrados, dataset_name)
@@ -227,14 +227,19 @@ def avaliar_modelos_inter_datasets(lista_datasets: list, versao_nome: str,
             nome_validacao = dataset_validacao['dataset_name'].iloc[0]
             nome_teste = dataset_teste['dataset_name'].iloc[0]
 
+             # Verifica se essa combinação já foi processada
+            if utils.combinacao_ja_avaliada_inter(nome_arquivo_csv, versao_nome, nome_train1, nome_train2, nome_validacao, nome_teste, model_name):
+                print(f"\t[IGNORADO] Já existe resultado para esta configuração.")
+                continue
+
             print(f"\n\tCiclo {i + 1}/{n} -- Treinamento: {nome_train1} e {nome_train2}; "
                   f"Validação: {nome_validacao}; Teste: {nome_teste}")
 
             # Concatena os dados dos dois conjuntos de treinamento
 
             X_train = np.concatenate([
-                np.array(dataset_train1['treated_description'].values),
-                np.array(dataset_train2['treated_description'].values)
+                np.array(dataset_train1['treated_description_ml'].values),
+                np.array(dataset_train2['treated_description_ml'].values)
             ])
 
             y_train = np.concatenate([
@@ -243,11 +248,11 @@ def avaliar_modelos_inter_datasets(lista_datasets: list, versao_nome: str,
             ])
 
             # Dados para validação
-            X_val = np.array(dataset_validacao['treated_description'].values)
+            X_val = np.array(dataset_validacao['treated_description_ml'].values)
             y_val = np.array(dataset_validacao['storypoint'].values)
 
             # Dados para teste
-            X_test = np.array(dataset_teste['treated_description'].values)
+            X_test = np.array(dataset_teste['treated_description_ml'].values)
             y_test = np.array(dataset_teste['storypoint'].values)
 
             pipeline = create_pipeline(model)

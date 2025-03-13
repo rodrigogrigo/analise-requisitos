@@ -1,4 +1,4 @@
-from preprocessing import carregar_datasets_ml
+from preprocessing import carregar_datasets_unificado
 from ml_evaluation import avaliar_modelos_intra_datasets, avaliar_modelos_inter_datasets
 
 
@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
     print('\nCarregando Bases de Dados')
 
-    datasets = carregar_datasets_ml(
+    datasets = carregar_datasets_unificado(
         diretorio_datasets_brutos,
         diretorio_datasets_processados,
         limitar_qtde_registros,
@@ -35,7 +35,6 @@ if __name__ == '__main__':
         )
 
     else:
-
         avaliar_modelos_inter_datasets(
             lista_datasets=datasets,
             versao_nome=versao_abordagem,

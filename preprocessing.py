@@ -104,6 +104,72 @@ def carregar_dados(fonte_dados):
     
     return dados_filtrados
 
+def carregar_datasets_unificado(diretorio_bruto: str,
+                                diretorio_processado: str,
+                                limitar_registros: bool = False,
+                                limite: int = 1000) -> list:
+    """
+    Lê todos os CSVs brutos em 'diretorio_bruto', aplica a filtragem universal
+    (carregar_dados), e gera um único CSV com duas colunas de pré-processamento:
+      - treated_description_ml
+      - treated_description_bert
+
+    Retorna uma lista de DataFrames (um para cada CSV).
+    """
+    os.makedirs(diretorio_processado, exist_ok=True)
+    lista_datasets_unificado = []
+
+    # Localiza todos os CSVs brutos
+    arquivos_brutos = glob.glob(os.path.join(diretorio_bruto, "*.csv"))
+
+    for arquivo in arquivos_brutos:
+        nome_dataset = os.path.splitext(os.path.basename(arquivo))[0]
+
+        # Exemplo: ignorar "titanium"
+        if 'titanium' in nome_dataset:
+            continue
+
+        # Caminho para salvar o CSV "unificado"
+        caminho_unificado = os.path.join(diretorio_processado, f"{nome_dataset}_unificado_processed.csv")
+
+        if os.path.exists(caminho_unificado):
+            # Se já existe, apenas lê
+            print(f"\n\tCarregando dataset unificado já processado: {nome_dataset}")
+            dados_unificado = pd.read_csv(caminho_unificado)
+        else:
+            print(f"\n\tProcessando dataset bruto (unificado): {nome_dataset}\n")
+            # 1) Carrega e filtra via carregar_dados
+            dados_filtrados = carregar_dados(arquivo)
+            dados_filtrados['dataset_name'] = nome_dataset
+
+            # Se desejar limitar
+            if limitar_registros:
+                dados_filtrados = dados_filtrados.head(limite)
+
+            # 2) Adiciona coluna pré-processada para ML
+            dados_filtrados['treated_description_ml'] = preprocessar_descricao(
+                dados_filtrados['description'].values,
+                base_bert=False
+            )
+
+            # 3) Adiciona coluna pré-processada para BERT
+            dados_filtrados['treated_description_bert'] = preprocessar_descricao(
+                dados_filtrados['description'].values,
+                base_bert=True
+            )
+
+            # 4) Salva em disco
+            dados_filtrados.to_csv(caminho_unificado, index=False)
+            print(f"\n\t\tDataset unificado salvo: {caminho_unificado}")
+
+            dados_unificado = dados_filtrados
+
+        lista_datasets_unificado.append(dados_unificado)
+
+
+    return lista_datasets_unificado
+
+
 
 def carregar_datasets_ml(diretorio_bruto: str, diretorio_processado: str,
                          limitar_registros: bool = False, limite: int = 1000) -> list:

@@ -84,11 +84,11 @@ def compute_metrics(eval_pred):
 
 def get_models():
     return [
-        # ("bert_base_uncased", "google-bert/bert-base-uncased"),
-        # ("roberta_base", "FacebookAI/roberta-base"),
-        # ("code_bert", "microsoft/codebert-base"),
-        # ("se_bert", "thearod5/se-bert"),
-        # ("bert_software_engineering", "burakkececi/bert-software-engineering"),
+        ("bert_base_uncased", "google-bert/bert-base-uncased"),
+        ("roberta_base", "FacebookAI/roberta-base"),
+        ("code_bert", "microsoft/codebert-base"),
+        ("se_bert", "thearod5/se-bert"),
+        ("bert_software_engineering", "burakkececi/bert-software-engineering"),
         ("bert_large_uncased", "google-bert/bert-large-uncased"),
         ("roberta_large", "FacebookAI/roberta-large")
     ]
@@ -138,7 +138,7 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets: list, versao_nome: str,
 
             print(f"\n\tProcessando Dataset {dataset_name}\n")
 
-            descriptions = dados_filtrados["treated_description"].values
+            descriptions = dados_filtrados["treated_description_bert"].values
 
             story_points = dados_filtrados["storypoint"].values
 
@@ -329,14 +329,9 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets: list, versao_nome: str,
             # Cria a string que representa os datasets de treinamento
             dataset_treino_comb = f"{nome_train1}, {nome_train2}"
 
-            # Verifica se essa combinação já foi avaliada
-            if utils.combinacao_ja_avaliada_inter(nome_arquivo_resultados, versao_nome, model_name, 
-                                        dataset_treino_comb, nome_val, nome_test):
-                print(f"\t[Cycle {i+1}/{n_datasets}] Combinação já avaliada:")
-                print(f"\t\tTreino: {dataset_treino_comb}")
-                print(f"\t\tValidação: {nome_val}")
-                print(f"\t\tTeste: {nome_test}")
-                continue  # Pula para o próximo ciclo
+            if utils.combinacao_ja_avaliada_inter(nome_arquivo_resultados, versao_nome, nome_train1, nome_train2, nome_val, nome_test, model_name):
+                print(f"\t[Cycle {i+1}/{n_datasets}] Combinação já avaliada.")
+                continue
 
             print(f"\n\tCiclo {i+1}/{n_datasets}\n")
             print(f"\t\tTeste:       {nome_test} -- {len(ds_test)}")
@@ -345,16 +340,16 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets: list, versao_nome: str,
 
             # Preparação dos dados:
             X_train = np.concatenate([
-                ds_train1["treated_description"].values,
-                ds_train2["treated_description"].values
+                ds_train1["treated_description_bert"].values,
+                ds_train2["treated_description_bert"].values
             ])
             y_train = np.concatenate([
                 ds_train1["storypoint"].values,
                 ds_train2["storypoint"].values
             ])
-            X_val = ds_val["treated_description"].values
+            X_val = ds_val["treated_description_bert"].values
             y_val = ds_val["storypoint"].values
-            X_test = ds_test["treated_description"].values
+            X_test = ds_test["treated_description_bert"].values
             y_test = ds_test["storypoint"].values
 
             # from sklearn.preprocessing import StandardScaler

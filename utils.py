@@ -46,29 +46,32 @@ def carregar_kfold(dataset_name: str):
     print(f"KFold indices loaded from file for dataset {dataset_name}.")
     return indices
 
-def combinacao_ja_avaliada_inter(nome_arquivo, versao, model, dataset_treino, dataset_validacao, dataset_teste):
+def criar_folds_para_datasets(lista_datasets: list):
     """
-    Verifica se a combinação de datasets para treinamento, validação e teste já existe
-    no arquivo de resultados.
+    Cria e salva os folds para todos os datasets fornecidos na lista.
     """
-    if not os.path.exists(nome_arquivo):
-        return False
+    for dados_filtrados in lista_datasets:
+        dataset_name = dados_filtrados['dataset_name'].iloc[0]
+        print(f'Criando folds para o dataset: {dataset_name}')
+        salvar_kfold(dados_filtrados, dataset_name)
 
+def combinacao_ja_avaliada_inter(nome_arquivo_csv, versao_nome, nome_train1, nome_train2, nome_validacao, nome_teste, model_name):
+    """
+    Verifica se a combinação de Treinamento, Validação, Teste e Modelo já existe no arquivo CSV.
+    Retorna True se existir, False caso contrário.
+    """
     try:
-        df = pd.read_csv(nome_arquivo)
-    except Exception as e:
-        print(f"Erro ao ler o arquivo {nome_arquivo}: {e}")
+        resultados_existentes = pd.read_csv(nome_arquivo_csv)
+        condicao = (
+            (resultados_existentes['Versao'] == versao_nome) &
+            (resultados_existentes['Treinamento'] == f'{nome_train1}, {nome_train2}') &
+            (resultados_existentes['Validacao'] == nome_validacao) &
+            (resultados_existentes['Teste'] == nome_teste) &
+            (resultados_existentes['Model'] == model_name)
+        )
+        return condicao.any()
+    except FileNotFoundError:
         return False
-
-    # Verifica se existe alguma linha com a mesma combinação de datasets, versão e modelo
-    cond = (
-        (df["Versao"] == versao) &
-        (df["Model"] == model) &
-        (df["Dataset_Treino"] == dataset_treino) &
-        (df["Dataset_Validacao"] == dataset_validacao) &
-        (df["Dataset_Teste"] == dataset_teste)
-    )
-    return cond.any()
 
 def combinacao_ja_avaliada_intra(nome_arquivo, versao, model, dataset):
     """
