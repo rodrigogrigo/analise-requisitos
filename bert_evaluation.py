@@ -307,77 +307,88 @@ def avaliar_modelo_bert_inter_datasets(lista_datasets: list, versao_nome: str,
     n_datasets = len(lista_datasets)
 
     for model_name, model_checkpoint in modelos:
+
         print(f"\nAvaliando Modelo {model_name}")
+
         base_model_path = os.path.join(BASE_CHECKPOINT_PATH, 'inter', model_name)
+
         os.makedirs(base_model_path, exist_ok=True)
 
         tokenizer = AutoTokenizer.from_pretrained(model_checkpoint, trust_remote_code=True)
 
-        for i in range(n_datasets):
-            # Seleciona os datasets de forma cíclica:
-            ds_test = lista_datasets[i]
-            ds_val = lista_datasets[(i + 1) % n_datasets]
-            ds_train1 = lista_datasets[(i + 2) % n_datasets]
-            ds_train2 = lista_datasets[(i + 3) % n_datasets]
+        for test_id in range(n_datasets):
+
+            ds_test = lista_datasets[test_id]
+            ds_val = lista_datasets[(test_id + 1) % n_datasets]
 
             # Extração dos nomes dos datasets para log
             nome_test = ds_test["dataset_name"].iloc[0]
             nome_val = ds_val["dataset_name"].iloc[0]
-            nome_train1 = ds_train1["dataset_name"].iloc[0]
-            nome_train2 = ds_train2["dataset_name"].iloc[0]
+
+            X_train = []
+            y_train = []
 
             # Cria a string que representa os datasets de treinamento
-            dataset_treino_comb = f"{nome_train1}, {nome_train2}"
+            dataset_treino_comb = ''
 
-            if utils.combinacao_ja_avaliada_inter(nome_arquivo_resultados, versao_nome, nome_train1, nome_train2, nome_val, nome_test, model_name):
-                print(f"\t[Cycle {i+1}/{n_datasets}] Combinação já avaliada.")
+            for train_id in range(n_datasets):
+
+                ds_dataset = lista_datasets[train_id]
+                ds_name = ds_dataset["dataset_name"].iloc[0]
+
+                if ds_name != nome_test and ds_name != nome_val:
+
+                    dataset_treino_comb += f"{ds_name}_"
+
+                    if len(X_train) == 0:
+                        X_train = lista_datasets[train_id]["treated_description_bert"].values
+                        y_train = lista_datasets[train_id]["storypoint"].values
+                    else:
+                        X_train = np.concatenate([
+                            X_train,
+                            lista_datasets[train_id]["treated_description_bert"].values
+                        ])
+                        y_train = np.concatenate([
+                            y_train,
+                            lista_datasets[train_id]["storypoint"].values
+                        ])
+
+            dataset_treino_comb = dataset_treino_comb[:-1]
+
+            if utils.combinacao_ja_avaliada_inter(nome_arquivo_resultados, versao_nome,
+                                                  dataset_treino_comb, nome_val, nome_test, model_name):
+                print(f"\t[Cycle {test_id+1}/{n_datasets}] Combinação já avaliada.")
                 continue
 
-            print(f"\n\tCiclo {i+1}/{n_datasets}\n")
+            print(f"\n\tCiclo {test_id+1}/{n_datasets}\n")
             print(f"\t\tTeste:       {nome_test} -- {len(ds_test)}")
             print(f"\t\tValidação:   {nome_val} -- {len(ds_val)}")
-            print(f"\t\tTreinamento: {nome_train1} e {nome_train2} -- {len(ds_train1) + len(ds_train2)}")
+            print(f"\t\tTreinamento: {dataset_treino_comb} -- {len(X_train)}")
 
             # Preparação dos dados:
-            X_train = np.concatenate([
-                ds_train1["treated_description_bert"].values,
-                ds_train2["treated_description_bert"].values
-            ])
-            y_train = np.concatenate([
-                ds_train1["storypoint"].values,
-                ds_train2["storypoint"].values
-            ])
+
             X_val = ds_val["treated_description_bert"].values
             y_val = ds_val["storypoint"].values
             X_test = ds_test["treated_description_bert"].values
             y_test = ds_test["storypoint"].values
 
-            # from sklearn.preprocessing import StandardScaler
-            #
-            # scaler = StandardScaler()
-            #
-            # y_train = scaler.fit_transform(y_train.reshape(-1, 1)).ravel()
-            #
-            # y_val = scaler.transform(y_val.reshape(-1, 1)).ravel()
-            # y_test = scaler.transform(y_test.reshape(-1, 1)).ravel()
-
-            best_model_cycle_path = os.path.join(base_model_path, f"cycle_{i+1}", "best_model")
+            best_model_cycle_path = os.path.join(base_model_path, f"cycle_{test_id+1}", "best_model")
 
             # Se já existir um modelo treinado para este ciclo, carrega-o; caso contrário, treina
             if os.path.exists(os.path.join(best_model_cycle_path, "pytorch_model.bin")):
-                print(f"\n\t\tCarregando modelo pré-treinado para o ciclo {i+1}.")
+                print(f"\n\t\tCarregando modelo pré-treinado para o ciclo {test_id+1}.")
                 model = AutoModelForSequenceClassification.from_pretrained(best_model_cycle_path,
                                                                            num_labels=1)
             else:
                 os.makedirs(best_model_cycle_path, exist_ok=True)
-                print(f"\n\n\t\tTreinando modelo para o ciclo {i+1}.")
+                print(f"\n\n\t\tTreinando modelo para o ciclo {test_id+1}.")
                 model = AutoModelForSequenceClassification.from_pretrained(model_checkpoint, num_labels=1)
 
                 # Cria os datasets para treinamento e validação
                 train_dataset = StoryPointDataset(X_train, y_train, tokenizer, MAX_LENGTH)
                 val_dataset = StoryPointDataset(X_val, y_val, tokenizer, MAX_LENGTH)
 
-                output_dir = os.path.join(base_model_path, f"cycle_{i+1}", "checkpoints")
+                output_dir = os.path.join(base_model_path, f"cycle_{test_id+1}", "checkpoints")
                 os.makedirs(output_dir, exist_ok=True)
 
                 training_args = TrainingArguments(

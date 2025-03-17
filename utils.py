@@ -55,7 +55,8 @@ def criar_folds_para_datasets(lista_datasets: list):
         print(f'Criando folds para o dataset: {dataset_name}')
         salvar_kfold(dados_filtrados, dataset_name)
 
-def combinacao_ja_avaliada_inter(nome_arquivo_csv, versao_nome, nome_train1, nome_train2, nome_validacao, nome_teste, model_name):
+def combinacao_ja_avaliada_inter(nome_arquivo_csv, versao_nome, nome_train, nome_validacao, nome_teste,
+                                 model_name):
     """
     Verifica se a combinação de Treinamento, Validação, Teste e Modelo já existe no arquivo CSV.
     Retorna True se existir, False caso contrário.
@@ -64,7 +65,7 @@ def combinacao_ja_avaliada_inter(nome_arquivo_csv, versao_nome, nome_train1, nom
         resultados_existentes = pd.read_csv(nome_arquivo_csv)
         condicao = (
             (resultados_existentes['Versao'] == versao_nome) &
-            (resultados_existentes['Treinamento'] == f'{nome_train1}, {nome_train2}') &
+            (resultados_existentes['Treinamento'] == nome_train) &
             (resultados_existentes['Validacao'] == nome_validacao) &
             (resultados_existentes['Teste'] == nome_teste) &
             (resultados_existentes['Model'] == model_name)
