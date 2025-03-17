@@ -65,9 +65,9 @@ def combinacao_ja_avaliada_inter(nome_arquivo_csv, versao_nome, nome_train, nome
         resultados_existentes = pd.read_csv(nome_arquivo_csv)
         condicao = (
             (resultados_existentes['Versao'] == versao_nome) &
-            (resultados_existentes['Treinamento'] == nome_train) &
-            (resultados_existentes['Validacao'] == nome_validacao) &
-            (resultados_existentes['Teste'] == nome_teste) &
+            (resultados_existentes['Dataset_Treino'] == nome_train) &
+            (resultados_existentes['Dataset_Validacao'] == nome_validacao) &
+            (resultados_existentes['Dataset_Teste'] == nome_teste) &
             (resultados_existentes['Model'] == model_name)
         )
         return condicao.any()
