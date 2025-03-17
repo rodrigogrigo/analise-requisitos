@@ -89,14 +89,15 @@ def carregar_dados(fonte_dados):
     dados['description'] = dados['title'].astype(str) + ' ' + dados['description']
     
     # Calcular IQR para remoção de outliers
-    q1 = dados['storypoint'].quantile(0.25)
-    q3 = dados['storypoint'].quantile(0.75)
-    iqr = q3 - q1
-    lower_bound = q1 - 1.5 * iqr
-    upper_bound = q3 + 1.5 * iqr
+    #q1 = dados['storypoint'].quantile(0.25)
+    #q3 = dados['storypoint'].quantile(0.75)
+    #iqr = q3 - q1
+    #lower_bound = q1 - 1.5 * iqr
+    #upper_bound = q3 + 1.5 * iqr
     
     # Remover outliers
-    dados = dados[(dados['storypoint'] >= lower_bound) & (dados['storypoint'] <= upper_bound)]
+    #dados = dados[(dados['storypoint'] >= lower_bound) & (dados['storypoint'] <= upper_bound)]
+    dados = dados[dados['storypoint'] <= 8]
     
     # Selecionar colunas relevantes e remover duplicatas
     dados_filtrados = dados[['description', 'storypoint', 'issuekey']]
@@ -166,6 +167,8 @@ def carregar_datasets_unificado(diretorio_bruto: str,
 
         lista_datasets_unificado.append(dados_unificado)
 
+
+    lista_datasets_unificado, _ = uniformizar_storypoints(lista_datasets_unificado)
 
     return lista_datasets_unificado
 
