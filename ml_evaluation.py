@@ -200,7 +200,7 @@ def avaliar_modelos_inter_datasets(lista_datasets: list, versao_nome: str,
 
     resultados_completos = []
 
-    n = len(lista_datasets)
+    n_datasets = len(lista_datasets)
     models = get_models()
 
     # Itera sobre os modelos
@@ -212,44 +212,60 @@ def avaliar_modelos_inter_datasets(lista_datasets: list, versao_nome: str,
         temp_results = []  # resultados deste modelo (across all cycles)
 
         # Processa cada ciclo (cada índice i na lista de datasets)
-        for i in range(n):
+        for test_id in range(n_datasets):
 
             # Seleção dos datasets de forma cíclica
 
-            dataset_teste = lista_datasets[i]
-            dataset_validacao = lista_datasets[(i + 1) % n]
-            dataset_train1 = lista_datasets[(i + 2) % n]
-            dataset_train2 = lista_datasets[(i + 3) % n]
+            dataset_teste = lista_datasets[test_id]
+            dataset_validacao = lista_datasets[(test_id + 1) % n_datasets]
 
             # Extração dos nomes para log
-            nome_train1 = dataset_train1['dataset_name'].iloc[0]
-            nome_train2 = dataset_train2['dataset_name'].iloc[0]
-            nome_validacao = dataset_validacao['dataset_name'].iloc[0]
-            nome_teste = dataset_teste['dataset_name'].iloc[0]
+            nome_test = dataset_teste['dataset_name'].iloc[0]
+            nome_val = dataset_validacao['dataset_name'].iloc[0]
 
-             # Verifica se essa combinação já foi processada
-            if utils.combinacao_ja_avaliada_inter(nome_arquivo_csv, versao_nome, nome_train1, nome_train2, nome_validacao, nome_teste, model_name):
+            X_train = []
+            y_train = []
+
+            # Cria a string que representa os datasets de treinamento
+            dataset_treino_comb = ''
+
+            for train_id in range(n_datasets):
+
+                ds_dataset = lista_datasets[train_id]
+                ds_name = ds_dataset["dataset_name"].iloc[0]
+
+                if ds_name != nome_test and ds_name != nome_val:
+
+                    dataset_treino_comb += f"{ds_name}_"
+
+                    if len(X_train) == 0:
+                        X_train = lista_datasets[train_id]["treated_description_ml"].values
+                        y_train = lista_datasets[train_id]["storypoint"].values
+                    else:
+                        X_train = np.concatenate([
+                            X_train,
+                            lista_datasets[train_id]["treated_description_ml"].values
+                        ])
+                        y_train = np.concatenate([
+                            y_train,
+                            lista_datasets[train_id]["storypoint"].values
+                        ])
+
+            dataset_treino_comb = dataset_treino_comb[:-1]
+
+            # Verifica se essa combinação já foi processada
+            if utils.combinacao_ja_avaliada_inter(nome_arquivo_csv, versao_nome, dataset_treino_comb,
+                                                  nome_val, nome_test, model_name):
                 print(f"\t[IGNORADO] Já existe resultado para esta configuração.")
                 continue
 
-            print(f"\n\tCiclo {i + 1}/{n} -- Treinamento: {nome_train1} e {nome_train2}; "
-                  f"Validação: {nome_validacao}; Teste: {nome_teste}")
+            print(f"\n\tCiclo {test_id + 1}/{n_datasets} -- Treinamento: {dataset_treino_comb}; "
+                  f"Validação: {nome_val}; Teste: {nome_test}")
 
-            # Concatena os dados dos dois conjuntos de treinamento
-
-            X_train = np.concatenate([
-                np.array(dataset_train1['treated_description_ml'].values),
-                np.array(dataset_train2['treated_description_ml'].values)
-            ])
-
-            y_train = np.concatenate([
-                np.array(dataset_train1['storypoint'].values),
-                np.array(dataset_train2['storypoint'].values)
-            ])
 
             # Dados para validação
-            X_val = np.array(dataset_validacao['treated_description_ml'].values)
-            y_val = np.array(dataset_validacao['storypoint'].values)
+            _ = np.array(dataset_validacao['treated_description_ml'].values)
+            _ = np.array(dataset_validacao['storypoint'].values)
 
             # Dados para teste
             X_test = np.array(dataset_teste['treated_description_ml'].values)
@@ -262,9 +278,9 @@ def avaliar_modelos_inter_datasets(lista_datasets: list, versao_nome: str,
 
             result = {
                 'Versao': versao_nome,
-                'Treinamento': f'{nome_train1}, {nome_train2}',
-                'Validacao': nome_validacao,
-                'Teste': nome_teste,
+                'Treinamento': f'{dataset_treino_comb}',
+                'Validacao': nome_val,
+                'Teste': nome_test,
                 'Model': model_name,
                 'MAE_Test': mae_test,
                 'R2_Test': r2_test,

@@ -35,6 +35,7 @@ if __name__ == '__main__':
         )
 
     else:
+
         avaliar_modelos_inter_datasets(
             lista_datasets=datasets,
             versao_nome=versao_abordagem,
