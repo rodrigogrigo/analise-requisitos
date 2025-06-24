@@ -11,7 +11,7 @@ if __name__ == '__main__':
     limitar_qtde_registros = False
     n_registros = -1
 
-    is_run_intra_datasets = False
+    is_run_intra_datasets = True
 
     bert_datasets = carregar_datasets_unificado(
         diretorio_datasets_brutos,
@@ -24,7 +24,7 @@ if __name__ == '__main__':
         avaliar_modelo_bert_intra_datasets(
             bert_datasets,
             versao_abordagem,
-            nome_arquivo_resultados='resultados_modelosBERT_intra_dataset.csv'
+            nome_arquivo_resultados='resultados_modelosBERT_intra_dataset_2.csv'
         )
 
     else:
@@ -32,5 +32,5 @@ if __name__ == '__main__':
         avaliar_modelo_bert_inter_datasets(
             bert_datasets,
             versao_abordagem,
-            nome_arquivo_resultados='resultados_modelosBERT_inter_dataset.csv'
+            nome_arquivo_resultados='resultados_modelosBERT_inter_dataset_2.csv'
         )

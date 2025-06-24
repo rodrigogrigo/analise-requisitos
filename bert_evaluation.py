@@ -84,13 +84,20 @@ def compute_metrics(eval_pred):
 
 def get_models():
     return [
-        ("bert_base_uncased", "google-bert/bert-base-uncased"),
-        ("roberta_base", "FacebookAI/roberta-base"),
-        ("code_bert", "microsoft/codebert-base"),
-        ("se_bert", "thearod5/se-bert"),
-        ("bert_software_engineering", "burakkececi/bert-software-engineering"),
-        ("bert_large_uncased", "google-bert/bert-large-uncased"),
-        ("roberta_large", "FacebookAI/roberta-large")
+        # ("bert_base_uncased", "google-bert/bert-base-uncased"),
+        # ("roberta_base", "FacebookAI/roberta-base"),
+        # ("code_bert", "microsoft/codebert-base"),
+        # ("se_bert", "thearod5/se-bert"),
+        # ("bert_software_engineering", "burakkececi/bert-software-engineering"),
+        # ("bert_large_uncased", "google-bert/bert-large-uncased"),
+        # ("roberta_large", "FacebookAI/roberta-large"),
+
+        ("custom_bert_base_uncased", "models/finetuned_mlm/custom_bert_base_uncased/best_model"),
+        ("custom_roberta_base", "models/finetuned_mlm/custom_roberta_base/best_model"),
+        ("custom_se_bert", "models/finetuned_mlm/custom_se_bert/best_model"),
+        ("custom_bert_software_engineering", "models/finetuned_mlm/custom_bert_software_engineering/best_model"),
+        ("custom_bert_large_uncased", "models/finetuned_mlm/custom_bert_large_uncased/best_model"),
+        ("custom_roberta_large", "models/finetuned_mlm/custom_roberta_large/best_model"),
     ]
 
 def get_valid_checkpoint(output_dir):
@@ -226,6 +233,7 @@ def avaliar_modelo_bert_intra_datasets(lista_datasets: list, versao_nome: str,
                     )
 
                     valid_ckpt = get_valid_checkpoint(output_dir)
+
                     if valid_ckpt:
                         trainer.train(resume_from_checkpoint=valid_ckpt)
                     else:
