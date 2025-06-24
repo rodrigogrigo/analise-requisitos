@@ -1,0 +1,12 @@
+Act as a senior software engineer responsible for estimating the effort required to complete tasks based on their descriptions.
+Your task is to assign a story point value to the DESCRIPTION provided below.
+Use story points as a relative estimation metric, as adopted in agile methodologies. This metric accounts for effort, complexity, and risk, and should not be directly tied to time.
+Use the following Fibonacci-based values for your estimates:
+    1 – very simple task
+    2 or 3 – simple or moderately complex task
+    5 – complex task
+    8 – high-effort or high-uncertainty task
+⚠️ IMPORTANT: Respond with only one number — 1, 2, 3, 5, or 8. Do not include any explanations, reasoning, or additional text.
+###DESCRIPTION
+{requirement_description}
+###OUTPUT
